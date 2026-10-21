@@ -26,6 +26,7 @@ jobs:
 
       - name: Validate Values Schema
         run: |
+          pip install pyyaml --quiet
           python3 -c "
 import yaml
 for f in ['helm/environments/staging/values.yaml', 'helm/environments/production/values.yaml']:
