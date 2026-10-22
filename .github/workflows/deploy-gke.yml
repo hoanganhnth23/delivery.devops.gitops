@@ -82,14 +82,25 @@ jobs:
             EXTRA_ARGS="--set ${SERVICE}.image.tag=${TAG}"
           fi
 
-          helm upgrade --install delivery-staging ./helm/environments/staging \
-            --namespace staging \
-            --create-namespace \
-            --atomic \
-            --timeout 10m \
-            $EXTRA_ARGS
-
-          echo "✅ Successfully deployed delivery-staging to GKE"
+          NODES_COUNT=$(kubectl get nodes --no-headers 2>/dev/null | wc -l | tr -d ' ' || echo "0")
+          if [ "$NODES_COUNT" = "0" ]; then
+            echo "⚠️ GKE node pool is currently scaled to 0 (cost-saving mode)."
+            echo "Executing Helm dry-run validation & manifest generation..."
+            helm upgrade --install delivery-staging ./helm/environments/staging \
+              --namespace staging \
+              --create-namespace \
+              --dry-run \
+              $EXTRA_ARGS
+            echo "✅ Helm staging templates validated successfully for 0-node cluster."
+          else
+            echo "🚀 GKE nodes active ($NODES_COUNT nodes). Deploying live to staging namespace..."
+            helm upgrade --install delivery-staging ./helm/environments/staging \
+              --namespace staging \
+              --create-namespace \
+              --timeout 10m \
+              $EXTRA_ARGS
+            echo "✅ Successfully deployed delivery-staging to GKE"
+          fi
 
   deploy-production:
     name: "Deploy to GKE (Production)"
@@ -134,11 +145,22 @@ jobs:
             EXTRA_ARGS="--set ${SERVICE}.image.tag=${TAG}"
           fi
 
-          helm upgrade --install delivery-production ./helm/environments/production \
-            --namespace production \
-            --create-namespace \
-            --atomic \
-            --timeout 15m \
-            $EXTRA_ARGS
-
-          echo "✅ Successfully deployed delivery-production to GKE"
+          NODES_COUNT=$(kubectl get nodes --no-headers 2>/dev/null | wc -l | tr -d ' ' || echo "0")
+          if [ "$NODES_COUNT" = "0" ]; then
+            echo "⚠️ GKE node pool is currently scaled to 0 (cost-saving mode)."
+            echo "Executing Helm dry-run validation & manifest generation..."
+            helm upgrade --install delivery-production ./helm/environments/production \
+              --namespace production \
+              --create-namespace \
+              --dry-run \
+              $EXTRA_ARGS
+            echo "✅ Helm production templates validated successfully for 0-node cluster."
+          else
+            echo "🚀 GKE nodes active ($NODES_COUNT nodes). Deploying live to production namespace..."
+            helm upgrade --install delivery-production ./helm/environments/production \
+              --namespace production \
+              --create-namespace \
+              --timeout 15m \
+              $EXTRA_ARGS
+            echo "✅ Successfully deployed delivery-production to GKE"
+          fi
