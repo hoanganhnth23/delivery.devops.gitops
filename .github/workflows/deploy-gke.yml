@@ -1,0 +1,144 @@
+name: Deploy to GKE
+
+on:
+  push:
+    branches:
+      - staging
+      - main
+    paths:
+      - 'helm/**'
+      - '.github/workflows/deploy-gke.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target Environment'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+        default: 'staging'
+      service_name:
+        description: 'Specific Service Name to update (optional, e.g. order-service)'
+        required: false
+        default: ''
+      image_tag:
+        description: 'Specific Image Tag to update (optional, e.g. staging-abc1234 or v1.0.0)'
+        required: false
+        default: ''
+  repository_dispatch:
+    types: [deploy_service]
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  PROJECT_ID: lithe-paratext-506208-s5
+  CLUSTER_NAME: delivery-cluster
+  CLUSTER_ZONE: asia-southeast1-a
+
+jobs:
+  deploy-staging:
+    name: "Deploy to GKE (Staging)"
+    if: github.ref == 'refs/heads/staging' || github.event.inputs.environment == 'staging' || github.event.client_payload.environment == 'staging'
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.0
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Connect to GKE Cluster
+        run: |
+          gcloud container clusters get-credentials "${{ env.CLUSTER_NAME }}" \
+            --zone "${{ env.CLUSTER_ZONE }}" \
+            --project "${{ env.PROJECT_ID }}"
+
+      - name: Update Helm Chart Dependencies
+        run: |
+          helm dependency update ./helm/environments/staging
+
+      - name: Deploy Staging via Helm
+        env:
+          SERVICE: ${{ github.event.inputs.service_name || github.event.client_payload.service_name }}
+          TAG: ${{ github.event.inputs.image_tag || github.event.client_payload.image_tag }}
+        run: |
+          EXTRA_ARGS=""
+          if [ -n "$SERVICE" ] && [ -n "$TAG" ]; then
+            echo "Targeting specific service: $SERVICE with tag: $TAG"
+            EXTRA_ARGS="--set ${SERVICE}.image.tag=${TAG}"
+          fi
+
+          helm upgrade --install delivery-staging ./helm/environments/staging \
+            --namespace staging \
+            --create-namespace \
+            --atomic \
+            --timeout 10m \
+            $EXTRA_ARGS
+
+          echo "✅ Successfully deployed delivery-staging to GKE"
+
+  deploy-production:
+    name: "Deploy to GKE (Production)"
+    if: github.ref == 'refs/heads/main' || github.event.inputs.environment == 'production' || github.event.client_payload.environment == 'production'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.0
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Connect to GKE Cluster
+        run: |
+          gcloud container clusters get-credentials "${{ env.CLUSTER_NAME }}" \
+            --zone "${{ env.CLUSTER_ZONE }}" \
+            --project "${{ env.PROJECT_ID }}"
+
+      - name: Update Helm Chart Dependencies
+        run: |
+          helm dependency update ./helm/environments/production
+
+      - name: Deploy Production via Helm
+        env:
+          SERVICE: ${{ github.event.inputs.service_name || github.event.client_payload.service_name }}
+          TAG: ${{ github.event.inputs.image_tag || github.event.client_payload.image_tag }}
+        run: |
+          EXTRA_ARGS=""
+          if [ -n "$SERVICE" ] && [ -n "$TAG" ]; then
+            echo "Targeting specific service: $SERVICE with tag: $TAG"
+            EXTRA_ARGS="--set ${SERVICE}.image.tag=${TAG}"
+          fi
+
+          helm upgrade --install delivery-production ./helm/environments/production \
+            --namespace production \
+            --create-namespace \
+            --atomic \
+            --timeout 15m \
+            $EXTRA_ARGS
+
+          echo "✅ Successfully deployed delivery-production to GKE"
