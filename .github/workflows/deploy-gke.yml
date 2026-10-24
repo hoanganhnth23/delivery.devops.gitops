@@ -1,4 +1,8 @@
-name: Deploy to GKE
+name: GitOps CD (validate + image promotion)
+
+# ArgoCD là bên DUY NHẤT deploy lên cụm (branch staging -> môi trường staging,
+# main -> production, production không deploy chung cụm). Workflow này không chạm
+# vào cụm: chỉ kiểm tra chart và ghi image tag mới vào Git để ArgoCD sync.
 
 on:
   push:
@@ -7,7 +11,12 @@ on:
       - main
     paths:
       - 'helm/**'
+      - 'argocd/**'
       - '.github/workflows/deploy-gke.yml'
+  pull_request:
+    branches:
+      - staging
+      - main
   workflow_dispatch:
     inputs:
       environment:
@@ -19,31 +28,21 @@ on:
           - production
         default: 'staging'
       service_name:
-        description: 'Specific Service Name to update (optional, e.g. order-service)'
-        required: false
-        default: ''
+        description: 'Service cần đổi image tag (vd. order-service)'
+        required: true
       image_tag:
-        description: 'Specific Image Tag to update (optional, e.g. staging-abc1234 or v1.0.0)'
-        required: false
-        default: ''
+        description: 'Image tag mới (vd. staging-abc1234 hoặc v1.0.0)'
+        required: true
   repository_dispatch:
     types: [deploy_service]
 
-permissions:
-  contents: read
-  id-token: write
-
-env:
-  PROJECT_ID: lithe-paratext-506208-s5
-  CLUSTER_NAME: delivery-cluster
-  CLUSTER_ZONE: asia-southeast1-a
-
 jobs:
-  deploy-staging:
-    name: "Deploy to GKE (Staging)"
-    if: github.ref == 'refs/heads/staging' || github.event.inputs.environment == 'staging' || github.event.client_payload.environment == 'staging'
+  validate:
+    name: Helm lint & render
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    environment: staging
+    permissions:
+      contents: read
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -53,114 +52,46 @@ jobs:
         with:
           version: v3.14.0
 
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
-
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
-
-      - name: Connect to GKE Cluster
+      - name: Lint charts
         run: |
-          gcloud container clusters get-credentials "${{ env.CLUSTER_NAME }}" \
-            --zone "${{ env.CLUSTER_ZONE }}" \
-            --project "${{ env.PROJECT_ID }}"
+          helm lint helm/charts/microservice helm/charts/web-app helm/charts/staging-data
 
-      - name: Update Helm Chart Dependencies
+      - name: Render environments
         run: |
-          helm dependency update ./helm/environments/staging
+          for env in staging production; do
+            helm dependency build "helm/environments/${env}"
+            helm template "delivery-${env}" "helm/environments/${env}" --namespace "delivery-${env}" > "/tmp/${env}.yaml"
+            echo "${env}: $(grep -c '^kind:' /tmp/${env}.yaml) manifests"
+          done
+          helm template delivery-staging-data helm/charts/staging-data --namespace delivery-staging > /tmp/staging-data.yaml
+          echo "staging-data: $(grep -c '^kind:' /tmp/staging-data.yaml) manifests"
 
-      - name: Deploy Staging via Helm
-        env:
-          SERVICE: ${{ github.event.inputs.service_name || github.event.client_payload.service_name }}
-          TAG: ${{ github.event.inputs.image_tag || github.event.client_payload.image_tag }}
-        run: |
-          EXTRA_ARGS=""
-          if [ -n "$SERVICE" ] && [ -n "$TAG" ]; then
-            echo "Targeting specific service: $SERVICE with tag: $TAG"
-            EXTRA_ARGS="--set ${SERVICE}.image.tag=${TAG}"
-          fi
-
-          NODES_COUNT=$(kubectl get nodes --no-headers 2>/dev/null | wc -l | tr -d ' ' || echo "0")
-          if [ "$NODES_COUNT" = "0" ]; then
-            echo "⚠️ GKE node pool is currently scaled to 0 (cost-saving mode)."
-            echo "Executing Helm dry-run validation & manifest generation..."
-            helm upgrade --install delivery-staging ./helm/environments/staging \
-              --namespace staging \
-              --create-namespace \
-              --dry-run \
-              $EXTRA_ARGS
-            echo "✅ Helm staging templates validated successfully for 0-node cluster."
-          else
-            echo "🚀 GKE nodes active ($NODES_COUNT nodes). Deploying live to staging namespace..."
-            helm upgrade --install delivery-staging ./helm/environments/staging \
-              --namespace staging \
-              --create-namespace \
-              --timeout 10m \
-              $EXTRA_ARGS
-            echo "✅ Successfully deployed delivery-staging to GKE"
-          fi
-
-  deploy-production:
-    name: "Deploy to GKE (Production)"
-    if: github.ref == 'refs/heads/main' || github.event.inputs.environment == 'production' || github.event.client_payload.environment == 'production'
+  promote-image:
+    name: Write image tag to Git
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'repository_dispatch'
     runs-on: ubuntu-latest
-    environment: production
+    permissions:
+      contents: write
+    env:
+      TARGET_ENV: ${{ github.event.inputs.environment || github.event.client_payload.environment || 'staging' }}
+      SERVICE: ${{ github.event.inputs.service_name || github.event.client_payload.service_name }}
+      TAG: ${{ github.event.inputs.image_tag || github.event.client_payload.image_tag }}
     steps:
-      - name: Checkout Code
+      - name: Resolve branch
+        id: branch
+        run: |
+          case "$TARGET_ENV" in
+            staging) echo "name=staging" >> "$GITHUB_OUTPUT" ;;
+            production) echo "name=main" >> "$GITHUB_OUTPUT" ;;
+            *) echo "Unknown environment: $TARGET_ENV" >&2; exit 1 ;;
+          esac
+
+      - name: Checkout target branch
         uses: actions/checkout@v4
-
-      - name: Set up Helm
-        uses: azure/setup-helm@v4
         with:
-          version: v3.14.0
+          ref: ${{ steps.branch.outputs.name }}
 
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
-
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
-
-      - name: Connect to GKE Cluster
+      - name: Update image tag and push
         run: |
-          gcloud container clusters get-credentials "${{ env.CLUSTER_NAME }}" \
-            --zone "${{ env.CLUSTER_ZONE }}" \
-            --project "${{ env.PROJECT_ID }}"
-
-      - name: Update Helm Chart Dependencies
-        run: |
-          helm dependency update ./helm/environments/production
-
-      - name: Deploy Production via Helm
-        env:
-          SERVICE: ${{ github.event.inputs.service_name || github.event.client_payload.service_name }}
-          TAG: ${{ github.event.inputs.image_tag || github.event.client_payload.image_tag }}
-        run: |
-          EXTRA_ARGS=""
-          if [ -n "$SERVICE" ] && [ -n "$TAG" ]; then
-            echo "Targeting specific service: $SERVICE with tag: $TAG"
-            EXTRA_ARGS="--set ${SERVICE}.image.tag=${TAG}"
-          fi
-
-          NODES_COUNT=$(kubectl get nodes --no-headers 2>/dev/null | wc -l | tr -d ' ' || echo "0")
-          if [ "$NODES_COUNT" = "0" ]; then
-            echo "⚠️ GKE node pool is currently scaled to 0 (cost-saving mode)."
-            echo "Executing Helm dry-run validation & manifest generation..."
-            helm upgrade --install delivery-production ./helm/environments/production \
-              --namespace production \
-              --create-namespace \
-              --dry-run \
-              $EXTRA_ARGS
-            echo "✅ Helm production templates validated successfully for 0-node cluster."
-          else
-            echo "🚀 GKE nodes active ($NODES_COUNT nodes). Deploying live to production namespace..."
-            helm upgrade --install delivery-production ./helm/environments/production \
-              --namespace production \
-              --create-namespace \
-              --timeout 15m \
-              $EXTRA_ARGS
-            echo "✅ Successfully deployed delivery-production to GKE"
-          fi
+          bash scripts/update-image.sh --service "$SERVICE" --tag "$TAG" --env "$TARGET_ENV" --commit
+          git push origin "HEAD:${{ steps.branch.outputs.name }}"

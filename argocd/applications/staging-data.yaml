@@ -11,8 +11,8 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: 'https://github.com/hoanganhnth/gitops-cd.git'
-    targetRevision: main
+    repoURL: 'https://github.com/hoanganhnth23/delivery.devops.gitops.git'
+    targetRevision: staging
     path: helm/charts/staging-data
   destination:
     server: 'https://kubernetes.default.svc'

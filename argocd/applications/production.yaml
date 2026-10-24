@@ -8,7 +8,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: 'https://github.com/hoanganhnth/gitops-cd.git'
+    repoURL: 'https://github.com/hoanganhnth23/delivery.devops.gitops.git'
     targetRevision: main
     path: helm/environments/production
     helm:

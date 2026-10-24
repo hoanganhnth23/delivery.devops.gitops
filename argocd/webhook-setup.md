@@ -36,7 +36,7 @@ stringData:
 
 ### Bước 3: Đăng ký Webhook trên GitHub (`gitops-cd`)
 
-1. Vào repo GitHub: **`https://github.com/hoanganhnth/gitops-cd/settings/hooks`**.
+1. Vào repo GitHub: **`https://github.com/hoanganhnth23/delivery.devops.gitops/settings/hooks`**.
 2. Bấm **Add webhook**.
 3. Điền các thông số:
    - **Payload URL**: `https://<IP_HOẶC_DOMAIN_ARGOCD>/api/webhook`

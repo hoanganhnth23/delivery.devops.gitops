@@ -1,0 +1,26 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kong-gateway-production
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: 'https://github.com/hoanganhnth23/delivery.devops.gitops.git'
+    targetRevision: main
+    path: helm/charts/kong-gateway
+    helm:
+      valueFiles:
+        - ../../environments/production/kong-gateway-values.yaml
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: delivery-production
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ApplyOutOfSyncOnly=true
