@@ -6,16 +6,17 @@ postgres:
   instances: 1
   storage: 20Gi
   storageClass: standard-rwo
+  # ~160 kết nối idle (~3MB mỗi cái) + shared_buffers 256MB -> cần ~1GB khi đủ kết nối.
   resources:
     requests:
       cpu: 250m
-      memory: 512Mi
+      memory: 768Mi
     limits:
       cpu: "1"
-      memory: 1Gi
+      memory: 1536Mi
   parameters:
-    # 9 service có DB × Hikari mặc định 10 = 90 kết nối; để dư cho psql/exporter.
-    max_connections: "150"
+    # 16 service có DB × Hikari mặc định 10 = 160 kết nối; để dư cho psql/exporter.
+    max_connections: "200"
     shared_buffers: 256MB
     effective_cache_size: 768MB
     # Có tham số pg_stat_statements.* thì CNPG tự nạp extension -> tìm slow query.
@@ -39,6 +40,7 @@ postgres:
     - shipper_db
     - analytics_db
     - livestream_db
+    - saga_db
 
 kafka:
   name: delivery-kafka

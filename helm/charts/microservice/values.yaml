@@ -107,4 +107,11 @@ envFrom: []
 #     name: db-credentials
 
 config: {}
+
+# Secret mount thành file (không đưa vào env). Vd. Spring configtree đọc /run/secrets/<key>.
+secretMounts: []
+# - name: runtime-secrets
+#   secretName: delivery-runtime-secrets
+#   mountPath: /run/secrets
+#   optional: false
 # application.yaml / properties if mounted as configmap

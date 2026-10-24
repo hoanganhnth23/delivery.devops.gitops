@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Bật staging cho một buổi làm việc/test tải.
-#   bash scripts/staging-up.sh            # 2 node (nấc 1)
+#   bash scripts/staging-up.sh            # 3 node e2-standard-2 (nấc 1, đủ 19 service)
 #   NODES=4 bash scripts/staging-up.sh    # bật sẵn nhiều node hơn cho buổi test nặng
 # Xong buổi PHẢI chạy scripts/staging-down.sh, nếu không node chạy cả đêm.
 set -euo pipefail
 source "$(dirname "$0")/staging-env.sh"
-NODES="${NODES:-2}"
+NODES="${NODES:-3}"
 WAIT_TIMEOUT="${WAIT_TIMEOUT:-900s}"
 
 echo "==> Resize ${NODE_POOL} lên ${NODES} node"
@@ -20,6 +20,9 @@ echo "==> Bật autoscaling 0..${MAX_NODES}"
 "${GCLOUD[@]}" container clusters get-credentials "$CLUSTER" --zone "$ZONE" >/dev/null
 echo "==> Chờ node Ready"
 kubectl wait --for=condition=Ready nodes --all --timeout="$WAIT_TIMEOUT"
+
+# Secret runtime/JWT (idempotent, chỉ tạo khi thiếu).
+bash "$(dirname "$0")/staging-secrets.sh"
 
 for ns in argocd monitoring delivery-staging; do
   if kubectl get ns "$ns" >/dev/null 2>&1; then

@@ -6,9 +6,10 @@ global:
 # =============================================================================
 # Staging là môi trường chạy chính (coi như prod). Cấu hình production chỉ để
 # tham chiếu luồng. Các khối dưới đây dùng YAML anchor để mọi service đồng nhất.
+# File này được sinh có chủ đích theo bảng service; sửa một service thì sửa khối của nó.
 # =============================================================================
 
-# Tên ConfigMap/Secret dùng chung (ConfigMap sinh ở templates/platform-env.yaml).
+# Giá trị cho templates/platform-env.yaml (ConfigMap dùng chung).
 platformEnv:
   kafkaBootstrap: delivery-kafka-kafka-bootstrap:9092
   redisHost: redis
@@ -17,8 +18,8 @@ platformEnv:
   tracingSampleProbability: "0.05"
 
 _defaults:
-  # Nấc 1 "yếu nhưng đủ chạy": request nhỏ để xếp vừa 2 node e2-standard-2,
-  # limit cho phép burst khi có tải. Tối ưu xong mới nâng (xem plan).
+  # Nấc 1 "yếu nhưng đủ chạy": request nhỏ, limit cho phép burst khi có tải.
+  # Tối ưu xong mới nâng (xem plan).
   resources: &serviceResources
     limits:
       cpu: 1000m
@@ -29,10 +30,17 @@ _defaults:
   envFrom: &platformEnvFrom
     - configMapRef:
         name: platform-env
-    # Secret tạo tay, không commit: INTERNAL_SECRET, JWT_*, SMTP_*...
+    # Tuỳ chọn, tạo bằng scripts/staging-secrets.sh từ file env local:
+    # SMTP_*, MAPBOX_SERVER_TOKEN, VNPAY_*...
     - secretRef:
         name: delivery-app-secrets
         optional: true
+  # Spring configtree đọc /run/secrets/<key> (internal-secret, registration-canary-hash-key).
+  # Secret tạo bằng scripts/staging-secrets.sh, không commit.
+  secretMounts: &runtimeSecretMounts
+    - name: runtime-secrets
+      secretName: delivery-runtime-secrets
+      mountPath: /run/secrets
   # Khi chạy test tải: đổi interval 5s / scrapeTimeout 4s, xong trả về 15s.
   metrics: &serviceMetrics
     serviceMonitor:
@@ -52,6 +60,7 @@ api-gateway:
   resources: *serviceResources
   metrics: *serviceMetrics
   envFrom: *platformEnvFrom
+  secretMounts: *runtimeSecretMounts
   env:
     - name: SPRING_PROFILES_ACTIVE
       value: "staging"
@@ -68,9 +77,21 @@ auth-service:
   resources: *serviceResources
   metrics: *serviceMetrics
   envFrom: *platformEnvFrom
+  secretMounts:
+    - name: runtime-secrets
+      secretName: delivery-runtime-secrets
+      mountPath: /run/secrets
+    # Cặp khoá RSA ký JWT (PEM: private PKCS8, public X509).
+    - name: jwt-keys
+      secretName: delivery-jwt
+      mountPath: /etc/delivery/jwt
   env:
     - name: SPRING_PROFILES_ACTIVE
       value: "staging"
+    - name: JWT_PRIVATE_KEY_PATH
+      value: /etc/delivery/jwt/private.pem
+    - name: JWT_PUBLIC_KEY_PATH
+      value: /etc/delivery/jwt/public.pem
     - name: SPRING_DATASOURCE_URL
       value: "jdbc:postgresql://delivery-pg-rw:5432/auth_db"
     - name: SPRING_DATASOURCE_USERNAME
@@ -95,38 +116,12 @@ user-service:
   resources: *serviceResources
   metrics: *serviceMetrics
   envFrom: *platformEnvFrom
+  secretMounts: *runtimeSecretMounts
   env:
     - name: SPRING_PROFILES_ACTIVE
       value: "staging"
     - name: SPRING_DATASOURCE_URL
       value: "jdbc:postgresql://delivery-pg-rw:5432/user_db"
-    - name: SPRING_DATASOURCE_USERNAME
-      valueFrom:
-        secretKeyRef: { name: delivery-pg-app, key: username }
-    - name: DB_PASSWORD
-      valueFrom:
-        secretKeyRef: { name: delivery-pg-app, key: password }
-    - name: POSTGRES_PASSWORD
-      valueFrom:
-        secretKeyRef: { name: delivery-pg-app, key: password }
-
-order-service:
-  fullnameOverride: order-service
-  replicaCount: 1
-  image:
-    repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/order-service
-    tag: "latest"
-  service:
-    port: 8084
-    targetPort: 8084
-  resources: *serviceResources
-  metrics: *serviceMetrics
-  envFrom: *platformEnvFrom
-  env:
-    - name: SPRING_PROFILES_ACTIVE
-      value: "staging"
-    - name: SPRING_DATASOURCE_URL
-      value: "jdbc:postgresql://delivery-pg-rw:5432/order_db"
     - name: SPRING_DATASOURCE_USERNAME
       valueFrom:
         secretKeyRef: { name: delivery-pg-app, key: username }
@@ -149,11 +144,40 @@ restaurant-service:
   resources: *serviceResources
   metrics: *serviceMetrics
   envFrom: *platformEnvFrom
+  secretMounts: *runtimeSecretMounts
   env:
     - name: SPRING_PROFILES_ACTIVE
       value: "staging"
     - name: SPRING_DATASOURCE_URL
       value: "jdbc:postgresql://delivery-pg-rw:5432/restaurant_db"
+    - name: SPRING_DATASOURCE_USERNAME
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: username }
+    - name: DB_PASSWORD
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: password }
+    - name: POSTGRES_PASSWORD
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: password }
+
+order-service:
+  fullnameOverride: order-service
+  replicaCount: 1
+  image:
+    repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/order-service
+    tag: "latest"
+  service:
+    port: 8084
+    targetPort: 8084
+  resources: *serviceResources
+  metrics: *serviceMetrics
+  envFrom: *platformEnvFrom
+  secretMounts: *runtimeSecretMounts
+  env:
+    - name: SPRING_PROFILES_ACTIVE
+      value: "staging"
+    - name: SPRING_DATASOURCE_URL
+      value: "jdbc:postgresql://delivery-pg-rw:5432/order_db"
     - name: SPRING_DATASOURCE_USERNAME
       valueFrom:
         secretKeyRef: { name: delivery-pg-app, key: username }
@@ -176,11 +200,68 @@ delivery-service:
   resources: *serviceResources
   metrics: *serviceMetrics
   envFrom: *platformEnvFrom
+  secretMounts: *runtimeSecretMounts
   env:
     - name: SPRING_PROFILES_ACTIVE
       value: "staging"
     - name: SPRING_DATASOURCE_URL
       value: "jdbc:postgresql://delivery-pg-rw:5432/delivery_db"
+    - name: SPRING_DATASOURCE_USERNAME
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: username }
+    - name: DB_PASSWORD
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: password }
+    - name: POSTGRES_PASSWORD
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: password }
+
+shipper-service:
+  fullnameOverride: shipper-service
+  replicaCount: 1
+  image:
+    repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/shipper-service
+    tag: "latest"
+  service:
+    port: 8089
+    targetPort: 8089
+  resources: *serviceResources
+  metrics: *serviceMetrics
+  envFrom: *platformEnvFrom
+  secretMounts: *runtimeSecretMounts
+  env:
+    - name: SPRING_PROFILES_ACTIVE
+      value: "staging"
+    - name: SPRING_DATASOURCE_URL
+      value: "jdbc:postgresql://delivery-pg-rw:5432/shipper_db"
+    - name: SPRING_DATASOURCE_USERNAME
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: username }
+    - name: DB_PASSWORD
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: password }
+    - name: POSTGRES_PASSWORD
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: password }
+
+settlement-service:
+  fullnameOverride: settlement-service
+  replicaCount: 1
+  image:
+    repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/settlement-service
+    tag: "latest"
+  service:
+    port: 8090
+    targetPort: 8090
+  resources: *serviceResources
+  metrics: *serviceMetrics
+  envFrom: *platformEnvFrom
+  secretMounts: *runtimeSecretMounts
+  env:
+    - name: SPRING_PROFILES_ACTIVE
+      value: "staging"
+    - name: SPRING_DATASOURCE_URL
+      value: "jdbc:postgresql://delivery-pg-rw:5432/settlement_db"
     - name: SPRING_DATASOURCE_USERNAME
       valueFrom:
         secretKeyRef: { name: delivery-pg-app, key: username }
@@ -203,38 +284,12 @@ notification-service:
   resources: *serviceResources
   metrics: *serviceMetrics
   envFrom: *platformEnvFrom
+  secretMounts: *runtimeSecretMounts
   env:
     - name: SPRING_PROFILES_ACTIVE
       value: "staging"
     - name: SPRING_DATASOURCE_URL
       value: "jdbc:postgresql://delivery-pg-rw:5432/notification_service_db"
-    - name: SPRING_DATASOURCE_USERNAME
-      valueFrom:
-        secretKeyRef: { name: delivery-pg-app, key: username }
-    - name: DB_PASSWORD
-      valueFrom:
-        secretKeyRef: { name: delivery-pg-app, key: password }
-    - name: POSTGRES_PASSWORD
-      valueFrom:
-        secretKeyRef: { name: delivery-pg-app, key: password }
-
-tracking-service:
-  fullnameOverride: tracking-service
-  replicaCount: 1
-  image:
-    repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/tracking-service
-    tag: "latest"
-  service:
-    port: 8093
-    targetPort: 8093
-  resources: *serviceResources
-  metrics: *serviceMetrics
-  envFrom: *platformEnvFrom
-  env:
-    - name: SPRING_PROFILES_ACTIVE
-      value: "staging"
-    - name: SPRING_DATASOURCE_URL
-      value: "jdbc:postgresql://delivery-pg-rw:5432/tracking_db"
     - name: SPRING_DATASOURCE_USERNAME
       valueFrom:
         secretKeyRef: { name: delivery-pg-app, key: username }
@@ -257,11 +312,68 @@ match-service:
   resources: *serviceResources
   metrics: *serviceMetrics
   envFrom: *platformEnvFrom
+  secretMounts: *runtimeSecretMounts
   env:
     - name: SPRING_PROFILES_ACTIVE
       value: "staging"
     - name: SPRING_DATASOURCE_URL
       value: "jdbc:postgresql://delivery-pg-rw:5432/match_db"
+    - name: SPRING_DATASOURCE_USERNAME
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: username }
+    - name: DB_PASSWORD
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: password }
+    - name: POSTGRES_PASSWORD
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: password }
+
+flashsale-service:
+  fullnameOverride: flashsale-service
+  replicaCount: 1
+  image:
+    repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/flashsale-service
+    tag: "latest"
+  service:
+    port: 8092
+    targetPort: 8092
+  resources: *serviceResources
+  metrics: *serviceMetrics
+  envFrom: *platformEnvFrom
+  secretMounts: *runtimeSecretMounts
+  env:
+    - name: SPRING_PROFILES_ACTIVE
+      value: "staging"
+    - name: SPRING_DATASOURCE_URL
+      value: "jdbc:postgresql://delivery-pg-rw:5432/flashsale_db"
+    - name: SPRING_DATASOURCE_USERNAME
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: username }
+    - name: DB_PASSWORD
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: password }
+    - name: POSTGRES_PASSWORD
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: password }
+
+tracking-service:
+  fullnameOverride: tracking-service
+  replicaCount: 1
+  image:
+    repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/tracking-service
+    tag: "latest"
+  service:
+    port: 8093
+    targetPort: 8093
+  resources: *serviceResources
+  metrics: *serviceMetrics
+  envFrom: *platformEnvFrom
+  secretMounts: *runtimeSecretMounts
+  env:
+    - name: SPRING_PROFILES_ACTIVE
+      value: "staging"
+    - name: SPRING_DATASOURCE_URL
+      value: "jdbc:postgresql://delivery-pg-rw:5432/tracking_db"
     - name: SPRING_DATASOURCE_USERNAME
       valueFrom:
         secretKeyRef: { name: delivery-pg-app, key: username }
@@ -284,9 +396,122 @@ routing-service:
   resources: *serviceResources
   metrics: *serviceMetrics
   envFrom: *platformEnvFrom
+  secretMounts: *runtimeSecretMounts
   env:
     - name: SPRING_PROFILES_ACTIVE
       value: "staging"
+
+livestream-service:
+  fullnameOverride: livestream-service
+  replicaCount: 1
+  image:
+    repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/livestream-service
+    tag: "latest"
+  service:
+    port: 8094
+    targetPort: 8094
+  resources: *serviceResources
+  metrics: *serviceMetrics
+  envFrom: *platformEnvFrom
+  secretMounts: *runtimeSecretMounts
+  env:
+    - name: SPRING_PROFILES_ACTIVE
+      value: "staging"
+    - name: SPRING_DATASOURCE_URL
+      value: "jdbc:postgresql://delivery-pg-rw:5432/livestream_db"
+    - name: SPRING_DATASOURCE_USERNAME
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: username }
+    - name: DB_PASSWORD
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: password }
+    - name: POSTGRES_PASSWORD
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: password }
+
+dispatch-service:
+  fullnameOverride: dispatch-service
+  replicaCount: 1
+  image:
+    repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/dispatch-service
+    tag: "latest"
+  service:
+    port: 8095
+    targetPort: 8095
+  resources: *serviceResources
+  metrics: *serviceMetrics
+  envFrom: *platformEnvFrom
+  secretMounts: *runtimeSecretMounts
+  env:
+    - name: SPRING_PROFILES_ACTIVE
+      value: "staging"
+    - name: SPRING_DATASOURCE_URL
+      value: "jdbc:postgresql://delivery-pg-rw:5432/saga_db"
+    - name: SPRING_DATASOURCE_USERNAME
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: username }
+    - name: DB_PASSWORD
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: password }
+    - name: POSTGRES_PASSWORD
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: password }
+
+promotion-service:
+  fullnameOverride: promotion-service
+  replicaCount: 1
+  image:
+    repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/promotion-service
+    tag: "latest"
+  service:
+    port: 8096
+    targetPort: 8096
+  resources: *serviceResources
+  metrics: *serviceMetrics
+  envFrom: *platformEnvFrom
+  secretMounts: *runtimeSecretMounts
+  env:
+    - name: SPRING_PROFILES_ACTIVE
+      value: "staging"
+    - name: SPRING_DATASOURCE_URL
+      value: "jdbc:postgresql://delivery-pg-rw:5432/promotion_db"
+    - name: SPRING_DATASOURCE_USERNAME
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: username }
+    - name: DB_PASSWORD
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: password }
+    - name: POSTGRES_PASSWORD
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: password }
+
+analytics-service:
+  fullnameOverride: analytics-service
+  replicaCount: 1
+  image:
+    repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/analytics-service
+    tag: "latest"
+  service:
+    port: 8097
+    targetPort: 8097
+  resources: *serviceResources
+  metrics: *serviceMetrics
+  envFrom: *platformEnvFrom
+  secretMounts: *runtimeSecretMounts
+  env:
+    - name: SPRING_PROFILES_ACTIVE
+      value: "staging"
+    - name: SPRING_DATASOURCE_URL
+      value: "jdbc:postgresql://delivery-pg-rw:5432/analytics_db"
+    - name: SPRING_DATASOURCE_USERNAME
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: username }
+    - name: DB_PASSWORD
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: password }
+    - name: POSTGRES_PASSWORD
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: password }
 
 search-service:
   fullnameOverride: search-service
@@ -300,6 +525,7 @@ search-service:
   resources: *serviceResources
   metrics: *serviceMetrics
   envFrom: *platformEnvFrom
+  secretMounts: *runtimeSecretMounts
   env:
     - name: SPRING_PROFILES_ACTIVE
       value: "staging"
@@ -316,6 +542,7 @@ web-bff-service:
   resources: *serviceResources
   metrics: *serviceMetrics
   envFrom: *platformEnvFrom
+  secretMounts: *runtimeSecretMounts
   env:
     - name: SPRING_PROFILES_ACTIVE
       value: "staging"

@@ -20,11 +20,11 @@ dependencies:
   - name: microservice
     version: 1.0.0
     repository: "file://../../charts/microservice"
-    alias: order-service
+    alias: restaurant-service
   - name: microservice
     version: 1.0.0
     repository: "file://../../charts/microservice"
-    alias: restaurant-service
+    alias: order-service
   - name: microservice
     version: 1.0.0
     repository: "file://../../charts/microservice"
@@ -32,11 +32,15 @@ dependencies:
   - name: microservice
     version: 1.0.0
     repository: "file://../../charts/microservice"
-    alias: notification-service
+    alias: shipper-service
   - name: microservice
     version: 1.0.0
     repository: "file://../../charts/microservice"
-    alias: tracking-service
+    alias: settlement-service
+  - name: microservice
+    version: 1.0.0
+    repository: "file://../../charts/microservice"
+    alias: notification-service
   - name: microservice
     version: 1.0.0
     repository: "file://../../charts/microservice"
@@ -44,7 +48,31 @@ dependencies:
   - name: microservice
     version: 1.0.0
     repository: "file://../../charts/microservice"
+    alias: flashsale-service
+  - name: microservice
+    version: 1.0.0
+    repository: "file://../../charts/microservice"
+    alias: tracking-service
+  - name: microservice
+    version: 1.0.0
+    repository: "file://../../charts/microservice"
     alias: routing-service
+  - name: microservice
+    version: 1.0.0
+    repository: "file://../../charts/microservice"
+    alias: livestream-service
+  - name: microservice
+    version: 1.0.0
+    repository: "file://../../charts/microservice"
+    alias: dispatch-service
+  - name: microservice
+    version: 1.0.0
+    repository: "file://../../charts/microservice"
+    alias: promotion-service
+  - name: microservice
+    version: 1.0.0
+    repository: "file://../../charts/microservice"
+    alias: analytics-service
   - name: microservice
     version: 1.0.0
     repository: "file://../../charts/microservice"

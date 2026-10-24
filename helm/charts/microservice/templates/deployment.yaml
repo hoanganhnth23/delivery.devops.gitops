@@ -66,14 +66,29 @@ spec:
           {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-          {{- if .Values.config }}
+          {{- if or .Values.config .Values.secretMounts }}
           volumeMounts:
+            {{- if .Values.config }}
             - name: config-volume
               mountPath: /app/config
+            {{- end }}
+            {{- range .Values.secretMounts }}
+            - name: {{ .name }}
+              mountPath: {{ .mountPath }}
+              readOnly: true
+            {{- end }}
           {{- end }}
-      {{- if .Values.config }}
+      {{- if or .Values.config .Values.secretMounts }}
       volumes:
+        {{- if .Values.config }}
         - name: config-volume
           configMap:
             name: {{ include "microservice.fullname" . }}-config
+        {{- end }}
+        {{- range .Values.secretMounts }}
+        - name: {{ .name }}
+          secret:
+            secretName: {{ .secretName }}
+            optional: {{ .optional | default false }}
+        {{- end }}
       {{- end }}
