@@ -16,6 +16,19 @@ serviceAccount:
 
 podAnnotations: {}
 
+# Actuator (health + prometheus) chạy trên port quản trị nội bộ, không đi qua Service http.
+management:
+  enabled: true
+  port: 9090
+
+# kube-prometheus-stack chỉ đọc ServiceMonitor/PodMonitor, không đọc annotation prometheus.io/*.
+metrics:
+  serviceMonitor:
+    enabled: false
+    path: /actuator/prometheus
+    interval: 15s
+    scrapeTimeout: 10s
+
 podSecurityContext: {}
 
 securityContext:
@@ -55,10 +68,20 @@ autoscaling:
   targetCPUUtilizationPercentage: 80
   targetMemoryUtilizationPercentage: 80
 
+# Java khởi động chậm khi nhiều service cùng lên trên node nhỏ: startupProbe cho tối đa
+# 5 phút; liveness/readiness chỉ bắt đầu sau khi startup thành công.
+startupProbe:
+  httpGet:
+    path: /actuator/health/liveness
+    port: management
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 30
+
 livenessProbe:
   httpGet:
     path: /actuator/health/liveness
-    port: 8080
+    port: management
   initialDelaySeconds: 45
   periodSeconds: 15
   timeoutSeconds: 5
@@ -67,7 +90,7 @@ livenessProbe:
 readinessProbe:
   httpGet:
     path: /actuator/health/readiness
-    port: 8080
+    port: management
   initialDelaySeconds: 30
   periodSeconds: 10
   timeoutSeconds: 3

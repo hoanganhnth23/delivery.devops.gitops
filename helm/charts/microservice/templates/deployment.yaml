@@ -39,6 +39,11 @@ spec:
             - name: http
               containerPort: {{ .Values.service.targetPort | default .Values.service.port }}
               protocol: TCP
+            {{- if .Values.management.enabled }}
+            - name: management
+              containerPort: {{ .Values.management.port | default 9090 }}
+              protocol: TCP
+            {{- end }}
           {{- if .Values.env }}
           env:
             {{- toYaml .Values.env | nindent 12 }}
@@ -46,6 +51,10 @@ spec:
           {{- if .Values.envFrom }}
           envFrom:
             {{- toYaml .Values.envFrom | nindent 12 }}
+          {{- end }}
+          {{- with .Values.startupProbe }}
+          startupProbe:
+            {{- toYaml . | nindent 12 }}
           {{- end }}
           {{- with .Values.livenessProbe }}
           livenessProbe:

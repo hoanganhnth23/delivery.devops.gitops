@@ -11,6 +11,10 @@ spec:
     repoURL: 'https://github.com/hoanganhnth/gitops-cd.git'
     targetRevision: main
     path: argocd/applications
+    directory:
+      # Staging là môi trường chạy chính; production chỉ để tham chiếu luồng,
+      # không deploy chung cụm (tránh gấp đôi chi phí). Apply tay nếu cần.
+      exclude: 'production.yaml'
   destination:
     server: 'https://kubernetes.default.svc'
     namespace: argocd

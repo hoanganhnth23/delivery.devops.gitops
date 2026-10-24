@@ -67,13 +67,13 @@ variable "node_count_min" {
 variable "node_count_max" {
   description = "Maximum node count per zone for autoscaler"
   type        = number
-  default     = 3
+  default     = 8
 }
 
 variable "machine_type" {
   description = "GKE Node machine type"
   type        = string
-  default     = "e2-standard-4"
+  default     = "e2-standard-2"
 }
 
 variable "disk_size_gb" {
@@ -85,11 +85,11 @@ variable "disk_size_gb" {
 variable "disk_type" {
   description = "Disk type for GKE nodes"
   type        = string
-  default     = "pd-standard"
+  default     = "pd-balanced"
 }
 
 variable "spot_instances" {
   description = "Whether to use Spot (preemptible) VMs for worker nodes to save costs"
   type        = bool
-  default     = true
+  default     = false
 }

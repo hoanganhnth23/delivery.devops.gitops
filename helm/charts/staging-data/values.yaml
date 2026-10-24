@@ -1,0 +1,86 @@
+# Nấc 1 "yếu nhưng đủ chạy" (2 node e2-standard-2): mọi thứ 1 instance, tài nguyên nhỏ.
+# Lên nấc 2: tăng instances/replicas = 3 và nâng resources/tham số theo bằng chứng đo được.
+
+postgres:
+  name: delivery-pg
+  instances: 1
+  storage: 20Gi
+  storageClass: standard-rwo
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  parameters:
+    # 9 service có DB × Hikari mặc định 10 = 90 kết nối; để dư cho psql/exporter.
+    max_connections: "150"
+    shared_buffers: 256MB
+    effective_cache_size: 768MB
+    # Có tham số pg_stat_statements.* thì CNPG tự nạp extension -> tìm slow query.
+    pg_stat_statements.max: "10000"
+    pg_stat_statements.track: all
+    log_min_duration_statement: "500"
+  # Mỗi service một database, cùng owner "app" (secret <name>-app).
+  databases:
+    - auth_db
+    - user_db
+    - order_db
+    - restaurant_db
+    - delivery_db
+    - notification_service_db
+    - tracking_db
+    - match_db
+    - web_bff_db
+    - flashsale_db
+    - promotion_db
+    - settlement_db
+    - shipper_db
+    - analytics_db
+    - livestream_db
+
+kafka:
+  name: delivery-kafka
+  version: 3.9.0
+  metadataVersion: 3.9-IV0
+  replicas: 1
+  storage: 20Gi
+  storageClass: standard-rwo
+  resources:
+    requests:
+      cpu: 250m
+      memory: 1Gi
+    limits:
+      cpu: "1"
+      memory: 1536Mi
+  jvmHeap: 768m
+  defaultPartitions: 6
+  # Client đang đặt *_AUTO_CREATE_TOPICS=false; staging để broker tự tạo topic.
+  # Khi ổn định thì chuyển sang KafkaTopic CR (bật topicOperator).
+  autoCreateTopics: true
+
+redis:
+  name: redis
+  image: redis:7.2-alpine
+  # noeviction: tồn kho flash sale / GEO shipper không được phép bị đẩy ra.
+  maxmemory: 384mb
+  maxmemoryPolicy: noeviction
+  storage: 5Gi
+  storageClass: standard-rwo
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  exporter:
+    image: oliver006/redis_exporter:v1.61.0
+
+monitoring:
+  # PodMonitor/ServiceMonitor cho kube-prometheus-stack
+  enabled: true
+  interval: 15s
+  # ConfigMap dashboard có label grafana_dashboard=1 để sidecar Grafana tự nạp.
+  dashboards: true

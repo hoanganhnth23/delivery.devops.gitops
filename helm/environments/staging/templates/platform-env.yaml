@@ -1,0 +1,39 @@
+# Env dùng chung cho mọi microservice staging. Biến nào service không dùng thì bị bỏ qua.
+# Tên service DNS khớp mặc định trong code nhờ fullnameOverride ở values.yaml;
+# chỉ khai báo lại các URL mặc định thiếu port hoặc dùng lb:// (Eureka đang tắt).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: platform-env
+data:
+  SPRING_KAFKA_BOOTSTRAP_SERVERS: {{ .Values.platformEnv.kafkaBootstrap | quote }}
+  SIMULATOR_KAFKA_BOOTSTRAP_SERVERS: {{ .Values.platformEnv.kafkaBootstrap | quote }}
+  SPRING_DATA_REDIS_HOST: {{ .Values.platformEnv.redisHost | quote }}
+  REDIS_HOST: {{ .Values.platformEnv.redisHost | quote }}
+  MANAGEMENT_TRACING_ENABLED: {{ .Values.platformEnv.tracingEnabled | quote }}
+  TRACING_SAMPLE_PROBABILITY: {{ .Values.platformEnv.tracingSampleProbability | quote }}
+  JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError"
+
+  # Service-to-service (HTTP trực tiếp qua k8s Service)
+  AUTH_SERVICE_INTERNAL_URL: "http://auth-service:8081"
+  AUTH_JWKS_URI: "http://auth-service:8081/.well-known/jwks.json"
+  USER_SERVICE_URL: "http://user-service:8082"
+  RESTAURANT_SERVICE_URL: "http://restaurant-service:8083"
+  ORDER_SERVICE_URL: "http://order-service:8084"
+  DELIVERY_SERVICE_URL: "http://delivery-service:8085"
+  MATCH_SERVICE_URL: "http://match-service:8092"
+  TRACKING_SERVICE_URL: "http://tracking-service:8093"
+  ROUTING_SERVICE_URL: "http://routing-service:8094"
+
+  # api-gateway: thay lb://... bằng địa chỉ Service
+  APP_AUTH_SERVICE_URI: "http://auth-service:8081"
+  APP_USER_SERVICE_URI: "http://user-service:8082"
+  APP_RESTAURANT_SERVICE_URI: "http://restaurant-service:8083"
+  APP_ORDER_SERVICE_URI: "http://order-service:8084"
+  APP_DELIVERY_SERVICE_URI: "http://delivery-service:8085"
+  APP_SEARCH_SERVICE_URI: "http://search-service:8088"
+  APP_NOTIFICATION_SERVICE_URI: "http://notification-service:8091"
+  APP_TRACKING_SERVICE_URI: "http://tracking-service:8093"
+  APP_TRACKING_SERVICE_WS_URI: "ws://tracking-service:8093"
+  WEB_BFF_SERVICE_URI: "http://web-bff-service:8091"
+  WEB_BFF_GATEWAY_BASE_URL: "http://api-gateway:8079"

@@ -1,0 +1,105 @@
+# kube-prometheus-stack bản rút gọn cho staging (chạy chính) — ưu tiên nhẹ:
+# - Tắt Alertmanager và các target control-plane GKE không scrape được.
+# - Retention ngắn, scrape mặc định 15s; ServiceMonitor của service chỉnh 5s khi test tải.
+# - Bật remote-write receiver để k6 đẩy metric vào cùng Prometheus.
+# Truy cập: kubectl -n monitoring port-forward svc/delivery-monitoring-grafana 3000:80
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: delivery-monitoring
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: 'https://prometheus-community.github.io/helm-charts'
+    chart: kube-prometheus-stack
+    targetRevision: 61.3.2
+    helm:
+      values: |
+        alertmanager:
+          enabled: false
+        kubeEtcd:
+          enabled: false
+        kubeScheduler:
+          enabled: false
+        kubeControllerManager:
+          enabled: false
+        kubeProxy:
+          enabled: false
+        prometheus:
+          prometheusSpec:
+            scrapeInterval: "15s"
+            evaluationInterval: "30s"
+            retention: 5d
+            retentionSize: 8GB
+            enableRemoteWriteReceiver: true
+            serviceMonitorSelectorNilUsesHelmValues: false
+            podMonitorSelectorNilUsesHelmValues: false
+            ruleSelectorNilUsesHelmValues: false
+            resources:
+              requests:
+                cpu: 200m
+                memory: 512Mi
+              limits:
+                memory: 1536Mi
+            storageSpec:
+              volumeClaimTemplate:
+                spec:
+                  storageClassName: standard-rwo
+                  accessModes: ["ReadWriteOnce"]
+                  resources:
+                    requests:
+                      storage: 10Gi
+        prometheusOperator:
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+        grafana:
+          adminPassword: "admin"
+          persistence:
+            enabled: false
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 256Mi
+          sidecar:
+            dashboards:
+              enabled: true
+              label: grafana_dashboard
+              searchNamespace: ALL
+            datasources:
+              enabled: true
+        kube-state-metrics:
+          resources:
+            requests:
+              cpu: 20m
+              memory: 64Mi
+            limits:
+              memory: 128Mi
+        prometheus-node-exporter:
+          resources:
+            requests:
+              cpu: 20m
+              memory: 32Mi
+            limits:
+              memory: 64Mi
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      # CRD của prometheus-operator vượt giới hạn annotation khi client-side apply.
+      - ServerSideApply=true

@@ -3,188 +3,335 @@ global:
   domain: staging.delivery.local
   garPrefix: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo
 
+# =============================================================================
+# Staging là môi trường chạy chính (coi như prod). Cấu hình production chỉ để
+# tham chiếu luồng. Các khối dưới đây dùng YAML anchor để mọi service đồng nhất.
+# =============================================================================
+
+# Tên ConfigMap/Secret dùng chung (ConfigMap sinh ở templates/platform-env.yaml).
+platformEnv:
+  kafkaBootstrap: delivery-kafka-kafka-bootstrap:9092
+  redisHost: redis
+  # Chưa có OTLP collector trên staging: tắt export trace để không tốn tài nguyên.
+  tracingEnabled: "false"
+  tracingSampleProbability: "0.05"
+
+_defaults:
+  # Nấc 1 "yếu nhưng đủ chạy": request nhỏ để xếp vừa 2 node e2-standard-2,
+  # limit cho phép burst khi có tải. Tối ưu xong mới nâng (xem plan).
+  resources: &serviceResources
+    limits:
+      cpu: 1000m
+      memory: 768Mi
+    requests:
+      cpu: 100m
+      memory: 384Mi
+  envFrom: &platformEnvFrom
+    - configMapRef:
+        name: platform-env
+    # Secret tạo tay, không commit: INTERNAL_SECRET, JWT_*, SMTP_*...
+    - secretRef:
+        name: delivery-app-secrets
+        optional: true
+  # Khi chạy test tải: đổi interval 5s / scrapeTimeout 4s, xong trả về 15s.
+  metrics: &serviceMetrics
+    serviceMonitor:
+      enabled: true
+      interval: 15s
+      scrapeTimeout: 10s
+
 api-gateway:
+  fullnameOverride: api-gateway
   replicaCount: 1
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/api-gateway
     tag: "latest"
   service:
-    port: 8080
-  resources:
-    limits:
-      cpu: 500m
-      memory: 512Mi
-    requests:
-      cpu: 100m
-      memory: 256Mi
+    port: 8079
+    targetPort: 8079
+  resources: *serviceResources
+  metrics: *serviceMetrics
+  envFrom: *platformEnvFrom
   env:
     - name: SPRING_PROFILES_ACTIVE
       value: "staging"
 
 auth-service:
+  fullnameOverride: auth-service
   replicaCount: 1
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/auth-service
     tag: "latest"
   service:
     port: 8081
-  resources:
-    limits:
-      cpu: 500m
-      memory: 512Mi
-    requests:
-      cpu: 100m
-      memory: 256Mi
+    targetPort: 8081
+  resources: *serviceResources
+  metrics: *serviceMetrics
+  envFrom: *platformEnvFrom
+  env:
+    - name: SPRING_PROFILES_ACTIVE
+      value: "staging"
+    - name: SPRING_DATASOURCE_URL
+      value: "jdbc:postgresql://delivery-pg-rw:5432/auth_db"
+    - name: SPRING_DATASOURCE_USERNAME
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: username }
+    - name: DB_PASSWORD
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: password }
+    - name: POSTGRES_PASSWORD
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: password }
 
 user-service:
+  fullnameOverride: user-service
   replicaCount: 1
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/user-service
     tag: "latest"
   service:
     port: 8082
-  resources:
-    limits:
-      cpu: 500m
-      memory: 512Mi
-    requests:
-      cpu: 100m
-      memory: 256Mi
+    targetPort: 8082
+  resources: *serviceResources
+  metrics: *serviceMetrics
+  envFrom: *platformEnvFrom
+  env:
+    - name: SPRING_PROFILES_ACTIVE
+      value: "staging"
+    - name: SPRING_DATASOURCE_URL
+      value: "jdbc:postgresql://delivery-pg-rw:5432/user_db"
+    - name: SPRING_DATASOURCE_USERNAME
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: username }
+    - name: DB_PASSWORD
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: password }
+    - name: POSTGRES_PASSWORD
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: password }
 
 order-service:
+  fullnameOverride: order-service
   replicaCount: 1
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/order-service
     tag: "latest"
   service:
-    port: 8083
-  resources:
-    limits:
-      cpu: 500m
-      memory: 512Mi
-    requests:
-      cpu: 100m
-      memory: 256Mi
+    port: 8084
+    targetPort: 8084
+  resources: *serviceResources
+  metrics: *serviceMetrics
+  envFrom: *platformEnvFrom
+  env:
+    - name: SPRING_PROFILES_ACTIVE
+      value: "staging"
+    - name: SPRING_DATASOURCE_URL
+      value: "jdbc:postgresql://delivery-pg-rw:5432/order_db"
+    - name: SPRING_DATASOURCE_USERNAME
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: username }
+    - name: DB_PASSWORD
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: password }
+    - name: POSTGRES_PASSWORD
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: password }
 
 restaurant-service:
+  fullnameOverride: restaurant-service
   replicaCount: 1
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/restaurant-service
     tag: "latest"
   service:
-    port: 8084
-  resources:
-    limits:
-      cpu: 500m
-      memory: 512Mi
-    requests:
-      cpu: 100m
-      memory: 256Mi
+    port: 8083
+    targetPort: 8083
+  resources: *serviceResources
+  metrics: *serviceMetrics
+  envFrom: *platformEnvFrom
+  env:
+    - name: SPRING_PROFILES_ACTIVE
+      value: "staging"
+    - name: SPRING_DATASOURCE_URL
+      value: "jdbc:postgresql://delivery-pg-rw:5432/restaurant_db"
+    - name: SPRING_DATASOURCE_USERNAME
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: username }
+    - name: DB_PASSWORD
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: password }
+    - name: POSTGRES_PASSWORD
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: password }
 
 delivery-service:
+  fullnameOverride: delivery-service
   replicaCount: 1
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/delivery-service
     tag: "latest"
   service:
     port: 8085
-  resources:
-    limits:
-      cpu: 500m
-      memory: 512Mi
-    requests:
-      cpu: 100m
-      memory: 256Mi
+    targetPort: 8085
+  resources: *serviceResources
+  metrics: *serviceMetrics
+  envFrom: *platformEnvFrom
+  env:
+    - name: SPRING_PROFILES_ACTIVE
+      value: "staging"
+    - name: SPRING_DATASOURCE_URL
+      value: "jdbc:postgresql://delivery-pg-rw:5432/delivery_db"
+    - name: SPRING_DATASOURCE_USERNAME
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: username }
+    - name: DB_PASSWORD
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: password }
+    - name: POSTGRES_PASSWORD
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: password }
 
 notification-service:
+  fullnameOverride: notification-service
   replicaCount: 1
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/notification-service
     tag: "latest"
   service:
-    port: 8086
-  resources:
-    limits:
-      cpu: 500m
-      memory: 512Mi
-    requests:
-      cpu: 100m
-      memory: 256Mi
+    port: 8091
+    targetPort: 8091
+  resources: *serviceResources
+  metrics: *serviceMetrics
+  envFrom: *platformEnvFrom
+  env:
+    - name: SPRING_PROFILES_ACTIVE
+      value: "staging"
+    - name: SPRING_DATASOURCE_URL
+      value: "jdbc:postgresql://delivery-pg-rw:5432/notification_service_db"
+    - name: SPRING_DATASOURCE_USERNAME
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: username }
+    - name: DB_PASSWORD
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: password }
+    - name: POSTGRES_PASSWORD
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: password }
 
 tracking-service:
+  fullnameOverride: tracking-service
   replicaCount: 1
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/tracking-service
     tag: "latest"
   service:
-    port: 8087
-  resources:
-    limits:
-      cpu: 500m
-      memory: 512Mi
-    requests:
-      cpu: 100m
-      memory: 256Mi
+    port: 8093
+    targetPort: 8093
+  resources: *serviceResources
+  metrics: *serviceMetrics
+  envFrom: *platformEnvFrom
+  env:
+    - name: SPRING_PROFILES_ACTIVE
+      value: "staging"
+    - name: SPRING_DATASOURCE_URL
+      value: "jdbc:postgresql://delivery-pg-rw:5432/tracking_db"
+    - name: SPRING_DATASOURCE_USERNAME
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: username }
+    - name: DB_PASSWORD
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: password }
+    - name: POSTGRES_PASSWORD
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: password }
 
 match-service:
+  fullnameOverride: match-service
   replicaCount: 1
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/match-service
     tag: "latest"
   service:
-    port: 8088
-  resources:
-    limits:
-      cpu: 500m
-      memory: 512Mi
-    requests:
-      cpu: 100m
-      memory: 256Mi
+    port: 8092
+    targetPort: 8092
+  resources: *serviceResources
+  metrics: *serviceMetrics
+  envFrom: *platformEnvFrom
+  env:
+    - name: SPRING_PROFILES_ACTIVE
+      value: "staging"
+    - name: SPRING_DATASOURCE_URL
+      value: "jdbc:postgresql://delivery-pg-rw:5432/match_db"
+    - name: SPRING_DATASOURCE_USERNAME
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: username }
+    - name: DB_PASSWORD
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: password }
+    - name: POSTGRES_PASSWORD
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: password }
 
 routing-service:
+  fullnameOverride: routing-service
   replicaCount: 1
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/routing-service
     tag: "latest"
   service:
-    port: 8089
-  resources:
-    limits:
-      cpu: 500m
-      memory: 512Mi
-    requests:
-      cpu: 100m
-      memory: 256Mi
+    port: 8094
+    targetPort: 8094
+  resources: *serviceResources
+  metrics: *serviceMetrics
+  envFrom: *platformEnvFrom
+  env:
+    - name: SPRING_PROFILES_ACTIVE
+      value: "staging"
 
 search-service:
+  fullnameOverride: search-service
   replicaCount: 1
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/search-service
     tag: "latest"
   service:
-    port: 8090
-  resources:
-    limits:
-      cpu: 500m
-      memory: 512Mi
-    requests:
-      cpu: 100m
-      memory: 256Mi
+    port: 8088
+    targetPort: 8088
+  resources: *serviceResources
+  metrics: *serviceMetrics
+  envFrom: *platformEnvFrom
+  env:
+    - name: SPRING_PROFILES_ACTIVE
+      value: "staging"
 
 web-bff-service:
+  fullnameOverride: web-bff-service
   replicaCount: 1
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/web-bff-service
     tag: "latest"
   service:
     port: 8091
-  resources:
-    limits:
-      cpu: 500m
-      memory: 512Mi
-    requests:
-      cpu: 100m
-      memory: 256Mi
+    targetPort: 8091
+  resources: *serviceResources
+  metrics: *serviceMetrics
+  envFrom: *platformEnvFrom
+  env:
+    - name: SPRING_PROFILES_ACTIVE
+      value: "staging"
+    - name: SERVER_PORT
+      value: "8091"
+    - name: SPRING_DATASOURCE_URL
+      value: "jdbc:postgresql://delivery-pg-rw:5432/web_bff_db"
+    - name: SPRING_DATASOURCE_USERNAME
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: username }
+    - name: DB_PASSWORD
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: password }
+    - name: POSTGRES_PASSWORD
+      valueFrom:
+        secretKeyRef: { name: delivery-pg-app, key: password }
 
 delivery-web:
   replicaCount: 1

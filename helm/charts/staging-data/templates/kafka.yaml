@@ -1,0 +1,67 @@
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaNodePool
+metadata:
+  name: dual
+  labels:
+    strimzi.io/cluster: {{ .Values.kafka.name }}
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  replicas: {{ .Values.kafka.replicas }}
+  # KRaft combined mode: mỗi node vừa controller vừa broker (đủ cho nấc 1-2).
+  roles:
+    - controller
+    - broker
+  storage:
+    type: jbod
+    volumes:
+      - id: 0
+        type: persistent-claim
+        size: {{ .Values.kafka.storage }}
+        class: {{ .Values.kafka.storageClass }}
+        deleteClaim: false
+        kraftMetadata: shared
+  resources:
+    {{- toYaml .Values.kafka.resources | nindent 4 }}
+  jvmOptions:
+    -Xms: {{ .Values.kafka.jvmHeap }}
+    -Xmx: {{ .Values.kafka.jvmHeap }}
+---
+{{- $rf := min (int .Values.kafka.replicas) 3 }}
+{{- $isr := ternary 2 1 (ge (int .Values.kafka.replicas) 3) }}
+apiVersion: kafka.strimzi.io/v1beta2
+kind: Kafka
+metadata:
+  name: {{ .Values.kafka.name }}
+  annotations:
+    strimzi.io/node-pools: enabled
+    strimzi.io/kraft: enabled
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  kafka:
+    version: {{ .Values.kafka.version }}
+    metadataVersion: {{ .Values.kafka.metadataVersion }}
+    listeners:
+      - name: plain
+        port: 9092
+        type: internal
+        tls: false
+    config:
+      num.partitions: {{ .Values.kafka.defaultPartitions }}
+      auto.create.topics.enable: {{ .Values.kafka.autoCreateTopics }}
+      default.replication.factor: {{ $rf }}
+      offsets.topic.replication.factor: {{ $rf }}
+      transaction.state.log.replication.factor: {{ $rf }}
+      transaction.state.log.min.isr: {{ $isr }}
+      min.insync.replicas: {{ $isr }}
+  # Exporter cho consumer lag theo group/topic (panel Kafka trên dashboard).
+  kafkaExporter:
+    topicRegex: ".*"
+    groupRegex: ".*"
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi

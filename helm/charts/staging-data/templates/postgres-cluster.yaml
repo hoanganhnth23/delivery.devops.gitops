@@ -1,0 +1,24 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ .Values.postgres.name }}
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  instances: {{ .Values.postgres.instances }}
+  storage:
+    size: {{ .Values.postgres.storage }}
+    storageClass: {{ .Values.postgres.storageClass }}
+  resources:
+    {{- toYaml .Values.postgres.resources | nindent 4 }}
+  postgresql:
+    parameters:
+      {{- toYaml .Values.postgres.parameters | nindent 6 }}
+  bootstrap:
+    initdb:
+      database: app
+      owner: app
+      postInitSQL:
+        {{- range .Values.postgres.databases }}
+        - CREATE DATABASE {{ . }} OWNER app;
+        {{- end }}

@@ -11,5 +11,11 @@ spec:
       targetPort: {{ .Values.service.targetPort | default .Values.service.port }}
       protocol: TCP
       name: http
+    {{- if .Values.management.enabled }}
+    - port: {{ .Values.management.port | default 9090 }}
+      targetPort: {{ .Values.management.port | default 9090 }}
+      protocol: TCP
+      name: management
+    {{- end }}
   selector:
     {{- include "microservice.selectorLabels" . | nindent 4 }}
