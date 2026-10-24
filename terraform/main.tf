@@ -50,14 +50,14 @@ module "iam" {
 module "gke" {
   source = "./modules/gke"
 
-  project_id                   = var.project_id
-  region                       = var.region
-  cluster_name                 = var.cluster_name
-  network                      = module.vpc.network_self_link
-  subnetwork                   = module.vpc.subnet_self_link
-  pods_secondary_range_name    = module.vpc.pods_secondary_range_name
+  project_id                    = var.project_id
+  region                        = var.region
+  cluster_name                  = var.cluster_name
+  network                       = module.vpc.network_self_link
+  subnetwork                    = module.vpc.subnet_self_link
+  pods_secondary_range_name     = module.vpc.pods_secondary_range_name
   services_secondary_range_name = module.vpc.services_secondary_range_name
-  node_service_account         = module.iam.gke_node_sa_email
+  node_service_account          = module.iam.gke_node_sa_email
 
   initial_node_count = var.initial_node_count
   node_count_min     = var.node_count_min

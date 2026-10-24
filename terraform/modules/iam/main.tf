@@ -17,7 +17,7 @@ locals {
 }
 
 resource "google_project_iam_member" "gke_node_roles" {
-  for_each = toset(locals.gke_node_roles)
+  for_each = toset(local.gke_node_roles)
   project  = var.project_id
   role     = each.key
   member   = "serviceAccount:${google_service_account.gke_nodes.email}"
@@ -40,7 +40,7 @@ locals {
 }
 
 resource "google_project_iam_member" "cicd_roles" {
-  for_each = toset(locals.cicd_roles)
+  for_each = toset(local.cicd_roles)
   project  = var.project_id
   role     = each.key
   member   = "serviceAccount:${google_service_account.cicd.email}"
