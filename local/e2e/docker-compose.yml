@@ -1,0 +1,292 @@
+# Local full-stack E2E: infra + 14 Spring services built by build.sh.
+# No config-server/Eureka: services talk over static DNS names, as on staging
+# (helm/environments/staging/templates/platform-env.yaml).
+# Secrets are generated per run into .run/ (git-ignored) by up.sh.
+
+x-service-env: &service-env
+  SPRING_CONFIG_IMPORT: optional:configtree:/run/secrets/
+  CONFIG_SERVER_IMPORT: ""
+  SERVICE_DISCOVERY_ENABLED: "false"
+  MANAGEMENT_TRACING_ENABLED: "false"
+  TRACING_SAMPLE_PROBABILITY: "0"
+  PLATFORM_SECRETS_INTERNAL_SECRET_REQUIRED: "true"
+  SPRING_DATASOURCE_USERNAME: postgres
+  SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  SPRING_DATA_REDIS_HOST: redis
+  REDIS_HOST: redis
+  JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=70 -XX:+ExitOnOutOfMemoryError -XX:TieredStopAtLevel=1"
+  AUTH_SERVICE_INTERNAL_URL: http://auth-service:8081
+  AUTH_JWKS_URI: http://auth-service:8081/.well-known/jwks.json
+  USER_SERVICE_URL: http://user-service:8082
+  RESTAURANT_SERVICE_URL: http://restaurant-service:8083
+  ORDER_SERVICE_URL: http://order-service:8084
+  DELIVERY_SERVICE_URL: http://delivery-service:8085
+  MATCH_SERVICE_URL: http://match-service:8092
+  TRACKING_SERVICE_URL: http://tracking-service:8093
+  ROUTING_SERVICE_URL: http://routing-service:8094
+  SHIPPER_SERVICE_URL: http://shipper-service:8089
+  SETTLEMENT_SERVICE_URL: http://settlement-service:8090
+  # Five clients are still @LoadBalanced (auth→user, order→restaurant,
+  # restaurant→order, match→settlement, tracking→delivery). Without Eureka the
+  # load balancer needs static instances or every call fails with
+  # "Service Instance cannot be null".
+  SPRING_APPLICATION_JSON: >-
+    {"spring.cloud.discovery.client.simple.instances":{
+    "user-service":[{"uri":"http://user-service:8082"}],
+    "restaurant-service":[{"uri":"http://restaurant-service:8083"}],
+    "order-service":[{"uri":"http://order-service:8084"}],
+    "delivery-service":[{"uri":"http://delivery-service:8085"}],
+    "settlement-service":[{"uri":"http://settlement-service:8090"}]}}
+
+x-service: &service
+  restart: "no"
+  networks: [e2e]
+  secrets:
+    - { source: internal-secret, target: internal-secret }
+    - { source: db-password, target: spring.datasource.password }
+  deploy: { resources: { limits: { memory: 640M } } }
+  healthcheck:
+    test: ["CMD-SHELL", "wget -q -T 3 -O /dev/null http://localhost:9090/actuator/health/readiness"]
+    interval: 10s
+    timeout: 5s
+    retries: 30
+    start_period: 40s
+
+x-needs-data: &needs-data
+  postgres: { condition: service_healthy }
+  kafka: { condition: service_healthy }
+  redis: { condition: service_healthy }
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/db-password
+    secrets: [db-password]
+    volumes:
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    deploy: { resources: { limits: { memory: 768M } } }
+    networks: [e2e]
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    deploy: { resources: { limits: { memory: 256M } } }
+    networks: [e2e]
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://kafka:9092,CONTROLLER://kafka:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_HEAP_OPTS: -Xms256m -Xmx384m
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server kafka:9092 >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+      start_period: 20s
+    deploy: { resources: { limits: { memory: 768M } } }
+    networks: [e2e]
+
+  api-gateway:
+    <<: *service
+    image: delivery-e2e/api-gateway:local
+    ports: ["${E2E_GATEWAY_PORT:-8079}:8079"]
+    environment:
+      <<: *service-env
+      # Gateway, web-bff and dispatch never call internal endpoints (same as the old compose).
+      PLATFORM_SECRETS_INTERNAL_SECRET_REQUIRED: "false"
+      PAYMENT_CLIENT_API_ENABLED: "false"
+      APP_CORS_ALLOWED_ORIGINS: ${E2E_CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173}
+      APP_AUTH_SERVICE_URI: http://auth-service:8081
+      APP_USER_SERVICE_URI: http://user-service:8082
+      APP_RESTAURANT_SERVICE_URI: http://restaurant-service:8083
+      APP_ORDER_SERVICE_URI: http://order-service:8084
+      APP_DELIVERY_SERVICE_URI: http://delivery-service:8085
+      APP_SHIPPER_SERVICE_URI: http://shipper-service:8089
+      APP_SETTLEMENT_SERVICE_URI: http://settlement-service:8090
+      APP_NOTIFICATION_SERVICE_URI: http://notification-service:8091
+      APP_TRACKING_SERVICE_URI: http://tracking-service:8093
+      APP_TRACKING_SERVICE_WS_URI: ws://tracking-service:8093
+      WEB_BFF_SERVICE_URI: http://web-bff-service:8091
+    depends_on:
+      redis: { condition: service_healthy }
+
+  web-bff-service:
+    <<: *service
+    image: delivery-e2e/web-bff:local
+    environment:
+      <<: *service-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/web_bff_db
+      WEB_BFF_GATEWAY_BASE_URL: http://api-gateway:8079
+      PLATFORM_SECRETS_INTERNAL_SECRET_REQUIRED: "false"
+      WEB_BFF_ALLOWED_ORIGINS: ${E2E_CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173}
+    secrets:
+      - { source: db-password, target: spring.datasource.password }
+      - { source: web-bff-encryption-key, target: web-bff.encryption-key-base64 }
+    depends_on: *needs-data
+
+  auth-service:
+    <<: *service
+    image: delivery-e2e/auth:local
+    environment:
+      <<: *service-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/auth_db
+      JWT_PRIVATE_KEY_PATH: /run/secrets/jwt-private.pem
+      JWT_PUBLIC_KEY_PATH: /run/secrets/jwt-public.pem
+      JWT_ACCESS_TOKEN_TTL_SECONDS: "900"
+      MANAGEMENT_HEALTH_MAIL_ENABLED: "false"
+      IDENTITY_EVENTS_ENABLED: "true"
+      IDENTITY_OUTBOX_RELAY_ENABLED: "true"
+      IDENTITY_STATUS_BOOTSTRAP_ENABLED: "true"
+      PUBLIC_REGISTRATION_ENABLED: "true"
+      REGISTRATION_CANARY_PERCENTAGE: "100"
+      JWT_ACCESS_TOKEN_SUBJECT_MODE: LEGACY_USER_ID
+      SEED_LOCAL_FIXTURE_EMAIL_VERIFIED: "true"
+    secrets:
+      - { source: internal-secret, target: internal-secret }
+      - { source: db-password, target: spring.datasource.password }
+      - { source: jwt-private-key, target: jwt-private.pem }
+      - { source: jwt-public-key, target: jwt-public.pem }
+    depends_on: *needs-data
+
+  user-service:
+    <<: *service
+    image: delivery-e2e/user:local
+    environment:
+      <<: *service-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/user_db
+      IDENTITY_EVENTS_ENABLED: "true"
+      IDENTITY_OUTBOX_RELAY_ENABLED: "true"
+    depends_on: *needs-data
+
+  restaurant-service:
+    <<: *service
+    image: delivery-e2e/restaurant:local
+    environment:
+      <<: *service-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/restaurant_db
+    depends_on: *needs-data
+
+  order-service:
+    <<: *service
+    image: delivery-e2e/order:local
+    environment:
+      <<: *service-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/order_db
+      ORDER_PAYMENT_EVENT_PROCESSING_ENABLED: "false"
+    depends_on: *needs-data
+
+  delivery-service:
+    <<: *service
+    image: delivery-e2e/delivery:local
+    environment:
+      <<: *service-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/delivery_db
+    depends_on: *needs-data
+
+  # Dispatch keeps its legacy DNS name and database (external contract unchanged).
+  saga-orchestrator-service:
+    <<: *service
+    image: delivery-e2e/dispatch:local
+    environment:
+      <<: *service-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/saga_db
+      SAGA_OUTBOX_RELAY_ENABLED: "true"
+      PLATFORM_SECRETS_INTERNAL_SECRET_REQUIRED: "false"
+      MATCHING_INITIAL_MAX_RETRY_ATTEMPTS: ${E2E_MATCH_RETRY_ATTEMPTS:-10}
+      MATCHING_INITIAL_DELAY_SECONDS: ${E2E_MATCH_DELAY_SECONDS:-5}
+      MATCHING_INITIAL_MAX_DELAY_SECONDS: ${E2E_MATCH_MAX_DELAY_SECONDS:-30}
+      SAGA_FINDING_SHIPPER_TIMEOUT_MINUTES: ${E2E_FINDING_SHIPPER_TIMEOUT_MINUTES:-5}
+    depends_on: *needs-data
+
+  match-service:
+    <<: *service
+    image: delivery-e2e/match:local
+    environment:
+      <<: *service-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/match_db
+      MATCH_OUTBOX_RELAY_ENABLED: "true"
+      MATCH_CANCELLATION_PROJECTION_RELAY_ENABLED: "true"
+    depends_on: *needs-data
+
+  tracking-service:
+    <<: *service
+    image: delivery-e2e/tracking:local
+    environment:
+      <<: *service-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/tracking_db
+    depends_on: *needs-data
+
+  routing-service:
+    <<: *service
+    image: delivery-e2e/routing:local
+    environment:
+      <<: *service-env
+      MAPBOX_SERVER_TOKEN: ""
+
+  shipper-service:
+    <<: *service
+    image: delivery-e2e/shipper:local
+    environment:
+      <<: *service-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/shipper_db
+      SHIPPER_LEGACY_RATING_WRITE_API_ENABLED: "false"
+      SHIPPER_LEGACY_DELETE_API_ENABLED: "false"
+    depends_on: *needs-data
+
+  settlement-service:
+    <<: *service
+    image: delivery-e2e/settlement:local
+    environment:
+      <<: *service-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/settlement_db
+      PAYMENT_PROCESSING_ENABLED: "false"
+      PAYMENT_CLIENT_API_ENABLED: "false"
+      FAKE_PAYMENT_PROVIDER_ENABLED: "false"
+      PAYOUT_PROCESSING_ENABLED: "false"
+      SETTLEMENT_SELF_SERVICE_API_ENABLED: "false"
+      SETTLEMENT_ADMIN_MUTATION_API_ENABLED: "false"
+    depends_on: *needs-data
+
+  notification-service:
+    <<: *service
+    image: delivery-e2e/notification:local
+    environment:
+      <<: *service-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/notification_service_db
+      NOTIFICATION_PREFERENCES_ENABLED: "false"
+    depends_on: *needs-data
+
+networks:
+  e2e: {}
+
+secrets:
+  internal-secret: { file: ./.run/internal-secret }
+  db-password: { file: ./.run/db-password }
+  web-bff-encryption-key: { file: ./.run/web-bff-encryption-key }
+  jwt-private-key: { file: ./.run/jwt-private.pem }
+  jwt-public-key: { file: ./.run/jwt-public.pem }
