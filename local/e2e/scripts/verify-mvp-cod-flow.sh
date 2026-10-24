@@ -45,6 +45,8 @@ outsider_token="$(jq -er '.outsiderToken' "$seed_result")"
 owner_token="$(jq -er '.ownerToken' "$seed_result")"
 shipper_token="$(jq -er '.shipperToken' "$seed_result")"
 shipper_user_id="$(jq -er '.shipperUserId' "$seed_result")"
+# Delivery and tracking address the shipper by profile id, not by account id.
+shipper_id="$(jq -er '.shipperId' "$seed_result")"
 restaurant_id="$(jq -er '.restaurantId' "$seed_result")"
 menu_item_id="$(jq -er '.menuItemId' "$seed_result")"
 
@@ -125,7 +127,7 @@ step "verify raw WebSocket participant authorization and location propagation"
 "$JAVA_BIN" "$SCRIPT_DIR/TrackingPublisherProbe.java" \
   "$websocket_base/ws/shipper-locations" participant \
   "$customer_token" "$outsider_token" "$shipper_token" \
-  "$delivery_id" "$shipper_user_id"
+  "$delivery_id" "$shipper_id"
 
 step "shipper completes delivery lifecycle"
 for status in PICKED_UP DELIVERING DELIVERED; do

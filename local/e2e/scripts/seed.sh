@@ -266,6 +266,7 @@ echo "✅ Menu item id=$MENU_ID"
 # --- 3. Shipper: hồ sơ + online + vị trí ---
 SHIPPER_TOKEN=""
 SHIPPER_USER_ID=""
+SHIPPER_ID=""
 SHIPPER_FIXTURES_JSON='[]'
 SHIPPER_EMAILS=()
 if [[ "$SEED_SKIP_SHIPPER" == "true" ]]; then
@@ -323,7 +324,7 @@ for shipper_index in $(seq 1 "$SEED_SHIPPER_COUNT"); do
     --arg token "$shipper_token" --argjson userId "$shipper_user_id" --argjson lat "$shipper_lat" --argjson lng "$shipper_lng" \
     '. + [{id:$id,email:$email,token:$token,userId:$userId,lat:$lat,lng:$lng}]' <<< "$SHIPPER_FIXTURES_JSON")"
   if [[ "$shipper_index" == "1" ]]; then
-    SHIPPER_EMAIL="$shipper_email"; SHIPPER_TOKEN="$shipper_token"; SHIPPER_USER_ID="$shipper_user_id"
+    SHIPPER_EMAIL="$shipper_email"; SHIPPER_TOKEN="$shipper_token"; SHIPPER_USER_ID="$shipper_user_id"; SHIPPER_ID="$shipper_id"
   fi
   echo "✅ Shipper fixture $shipper_index/$SEED_SHIPPER_COUNT online tại ($shipper_lat, $shipper_lng)"
 done
@@ -361,6 +362,7 @@ if [[ -n "$SEED_OUTPUT_FILE" ]]; then
     --argjson restaurantId "$REST_ID" \
     --argjson menuItemId "$MENU_ID" \
     --argjson shipperUserId "${SHIPPER_USER_ID:-null}" \
+    --argjson shipperId "${SHIPPER_ID:-null}" \
     --argjson shippers "$SHIPPER_FIXTURES_JSON" \
     --argjson restaurantLat "$REST_LAT" \
     --argjson restaurantLng "$REST_LNG" \
@@ -374,7 +376,7 @@ if [[ -n "$SEED_OUTPUT_FILE" ]]; then
       customerToken: $customerToken, outsiderToken: $outsiderToken,
       ownerToken: $ownerToken,
       shipperToken: $shipperToken, restaurantId: $restaurantId,
-      menuItemId: $menuItemId, shipperUserId: $shipperUserId,
+      menuItemId: $menuItemId, shipperUserId: $shipperUserId, shipperId: $shipperId,
       shippers: $shippers,
       restaurantLat: $restaurantLat, restaurantLng: $restaurantLng,
       shipperLat: $shipperLat, shipperLng: $shipperLng,
