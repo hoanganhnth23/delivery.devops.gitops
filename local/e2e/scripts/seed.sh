@@ -89,7 +89,12 @@ CURL_RETRY_ARGS=(--retry 12 --retry-all-errors --retry-max-time 600)
 
 # Seed writes local fixture rows and must stay inside the same compose project
 # as the Gateway passed through BASE (see local/e2e/up.sh).
-COMPOSE_COMMAND=(docker compose -f "$E2E_DIR/docker-compose.yml" -p "${E2E_PROJECT:-delivery-e2e}")
+# COMPOSE_FILE (absolute paths) lets a run layer overrides on the stack.
+if [ -n "${COMPOSE_FILE:-}" ]; then
+  COMPOSE_COMMAND=(docker compose -p "${E2E_PROJECT:-delivery-e2e}")
+else
+  COMPOSE_COMMAND=(docker compose -f "$E2E_DIR/docker-compose.yml" -p "${E2E_PROJECT:-delivery-e2e}")
+fi
 
 # Trích token: thử cả dạng bọc BaseResponse (.data) lẫn phẳng.
 extract() { jq -r "$1 // .data$1 // empty"; }

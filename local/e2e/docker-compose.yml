@@ -30,6 +30,8 @@ x-service-env: &service-env
   # restaurant→order, match→settlement, tracking→delivery). Without Eureka the
   # load balancer needs static instances or every call fails with
   # "Service Instance cannot be null".
+  # Temporary: drop this once the fix/remove-load-balanced-clients PRs (auth, order,
+  # restaurant, match, tracking) are merged; with those images it is not needed.
   SPRING_APPLICATION_JSON: >-
     {"spring.cloud.discovery.client.simple.instances":{
     "user-service":[{"uri":"http://user-service:8082"}],

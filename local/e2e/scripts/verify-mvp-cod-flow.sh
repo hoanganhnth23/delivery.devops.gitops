@@ -24,7 +24,12 @@ java_version="$($JAVA_BIN -XshowSettings:properties -version 2>&1 \
 # Keep database/Kafka assertions in the same compose project as the Gateway
 # under test (see local/e2e/up.sh).
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-COMPOSE_COMMAND=(docker compose -f "$SCRIPT_DIR/../docker-compose.yml" -p "${E2E_PROJECT:-delivery-e2e}")
+# COMPOSE_FILE (absolute paths) lets a run layer overrides on the stack.
+if [ -n "${COMPOSE_FILE:-}" ]; then
+  COMPOSE_COMMAND=(docker compose -p "${E2E_PROJECT:-delivery-e2e}")
+else
+  COMPOSE_COMMAND=(docker compose -f "$SCRIPT_DIR/../docker-compose.yml" -p "${E2E_PROJECT:-delivery-e2e}")
+fi
 
 step() {
   printf '[COD] %s\n' "$1"
