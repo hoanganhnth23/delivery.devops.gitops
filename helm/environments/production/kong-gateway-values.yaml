@@ -1,0 +1,27 @@
+# Production environment overrides for Kong Gateway
+replicaCount: 3
+
+resources:
+  requests:
+    cpu: 200m
+    memory: 256Mi
+  limits:
+    cpu: 1000m
+    memory: 512Mi
+
+service:
+  type: LoadBalancer
+  annotations:
+    cloud.google.com/load-balancer-type: "External"
+
+plugins:
+  rateLimiting:
+    minute: 300
+    policy: local
+
+ingress:
+  className: kong
+  host: "api.delivery.vn"
+  tls:
+    enabled: true
+    secretName: "delivery-tls-cert"

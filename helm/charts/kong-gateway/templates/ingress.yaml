@@ -1,0 +1,184 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}-ingress
+  labels:
+    app.kubernetes.io/name: kong-gateway
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  annotations:
+    konghq.com/plugins: "{{ .Release.Name }}-cors, {{ .Release.Name }}-correlation-id, {{ .Release.Name }}-rate-limiting"
+    konghq.com/strip-path: "false"
+spec:
+  ingressClassName: {{ .Values.ingress.className | default "kong" }}
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.host | quote }}
+      secretName: {{ .Values.ingress.tls.secretName | quote }}
+  {{- end }}
+  rules:
+    - {{- if .Values.ingress.host }}
+      host: {{ .Values.ingress.host | quote }}
+      {{- end }}
+      http:
+        paths:
+          # 1. Auth Service
+          - path: /.well-known/jwks.json
+            pathType: Exact
+            backend:
+              service:
+                name: {{ .Values.services.auth.name }}
+                port:
+                  number: {{ .Values.services.auth.port }}
+          - path: /api/auth
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Values.services.auth.name }}
+                port:
+                  number: {{ .Values.services.auth.port }}
+
+          # 2. User Service
+          - path: /api/users
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Values.services.user.name }}
+                port:
+                  number: {{ .Values.services.user.port }}
+
+          # 3. Restaurant & Menu Service
+          - path: /api/restaurants
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Values.services.restaurant.name }}
+                port:
+                  number: {{ .Values.services.restaurant.port }}
+          - path: /api/menus
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Values.services.restaurant.name }}
+                port:
+                  number: {{ .Values.services.restaurant.port }}
+
+          # 4. Order Service
+          - path: /api/orders
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Values.services.order.name }}
+                port:
+                  number: {{ .Values.services.order.port }}
+
+          # 5. Delivery Service
+          - path: /api/deliveries
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Values.services.delivery.name }}
+                port:
+                  number: {{ .Values.services.delivery.port }}
+
+          # 6. Search Service
+          - path: /api/search
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Values.services.search.name }}
+                port:
+                  number: {{ .Values.services.search.port }}
+
+          # 7. Promotion Service
+          - path: /api/promotions
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Values.services.promotion.name }}
+                port:
+                  number: {{ .Values.services.promotion.port }}
+          - path: /api/vouchers
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Values.services.promotion.name }}
+                port:
+                  number: {{ .Values.services.promotion.port }}
+
+          # 8. Notification Service
+          - path: /api/notifications
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Values.services.notification.name }}
+                port:
+                  number: {{ .Values.services.notification.port }}
+
+          # 9. Shipper Service
+          - path: /api/shippers
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Values.services.shipper.name }}
+                port:
+                  number: {{ .Values.services.shipper.port }}
+
+          # 10. Settlement & Payment Service
+          - path: /api/settlement
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Values.services.settlement.name }}
+                port:
+                  number: {{ .Values.services.settlement.port }}
+          - path: /api/payments
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Values.services.settlement.name }}
+                port:
+                  number: {{ .Values.services.settlement.port }}
+
+          # 11. Web BFF Service
+          - path: /bff
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Values.services.webBff.name }}
+                port:
+                  number: {{ .Values.services.webBff.port }}
+
+          # 12. Match Service
+          - path: /api/match
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Values.services.match.name }}
+                port:
+                  number: {{ .Values.services.match.port }}
+
+          # 13. Tracking Service
+          - path: /api/tracking
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Values.services.tracking.name }}
+                port:
+                  number: {{ .Values.services.tracking.port }}
+          - path: /ws/tracking
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Values.services.tracking.name }}
+                port:
+                  number: {{ .Values.services.tracking.port }}
+
+          # 14. Analytics Service
+          - path: /api/analytics
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Values.services.analytics.name }}
+                port:
+                  number: {{ .Values.services.analytics.port }}

@@ -1,0 +1,71 @@
+{{- if .Values.plugins.cors.enabled }}
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: {{ .Release.Name }}-cors
+  labels:
+    app.kubernetes.io/name: kong-gateway
+    app.kubernetes.io/instance: {{ .Release.Name }}
+plugin: cors
+config:
+  origins:
+    {{- range .Values.plugins.cors.origins }}
+    - {{ . | quote }}
+    {{- end }}
+  methods:
+    - GET
+    - POST
+    - PUT
+    - PATCH
+    - DELETE
+    - OPTIONS
+  headers:
+    - Accept
+    - Accept-Version
+    - Content-Length
+    - Content-Type
+    - Date
+    - Authorization
+    - X-Request-ID
+    - X-User-Id
+    - X-User-Roles
+    - X-Device-Id
+  exposed_headers:
+    - X-Request-ID
+    - Content-Disposition
+  credentials: {{ .Values.plugins.cors.credentials }}
+  max_age: 3600
+---
+{{- end }}
+
+{{- if .Values.plugins.correlationId.enabled }}
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: {{ .Release.Name }}-correlation-id
+  labels:
+    app.kubernetes.io/name: kong-gateway
+    app.kubernetes.io/instance: {{ .Release.Name }}
+plugin: correlation-id
+config:
+  header_name: {{ .Values.plugins.correlationId.headerName | quote }}
+  generator: uuid
+  echo_downstream: true
+---
+{{- end }}
+
+{{- if .Values.plugins.rateLimiting.enabled }}
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: {{ .Release.Name }}-rate-limiting
+  labels:
+    app.kubernetes.io/name: kong-gateway
+    app.kubernetes.io/instance: {{ .Release.Name }}
+plugin: rate-limiting
+config:
+  minute: {{ .Values.plugins.rateLimiting.minute }}
+  policy: {{ .Values.plugins.rateLimiting.policy | quote }}
+  fault_tolerant: true
+---
+{{- end }}

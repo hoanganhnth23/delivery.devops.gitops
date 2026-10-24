@@ -1,0 +1,200 @@
+_format_version: "3.0"
+
+# ==============================================================================
+# KONG GATEWAY DECLARATIVE CONFIGURATION (DB-LESS MODE FOR LOCAL DEV)
+# ==============================================================================
+
+services:
+  # 1. Auth Service
+  - name: auth-service
+    url: http://host.docker.internal:8081
+    routes:
+      - name: auth-service-jwks
+        paths:
+          - /.well-known/jwks.json
+        methods:
+          - GET
+        strip_path: false
+      - name: auth-service-api
+        paths:
+          - /api/auth
+        strip_path: false
+    plugins:
+      - name: rate-limiting
+        config:
+          minute: 30
+          policy: local
+
+  # 2. User Service
+  - name: user-service
+    url: http://host.docker.internal:8082
+    routes:
+      - name: user-service-api
+        paths:
+          - /api/users
+        strip_path: false
+
+  # 3. Restaurant Service (Catalog & Menus)
+  - name: restaurant-service
+    url: http://host.docker.internal:8083
+    routes:
+      - name: restaurant-service-api
+        paths:
+          - /api/restaurants
+          - /api/menus
+        strip_path: false
+
+  # 4. Order Service
+  - name: order-service
+    url: http://host.docker.internal:8084
+    routes:
+      - name: order-service-api
+        paths:
+          - /api/orders
+        strip_path: false
+
+  # 5. Delivery Service
+  - name: delivery-service
+    url: http://host.docker.internal:8085
+    routes:
+      - name: delivery-service-api
+        paths:
+          - /api/deliveries
+        strip_path: false
+
+  # 6. Search Service
+  - name: search-service
+    url: http://host.docker.internal:8086
+    routes:
+      - name: search-service-api
+        paths:
+          - /api/search
+        strip_path: false
+
+  # 7. Promotion Service
+  - name: promotion-service
+    url: http://host.docker.internal:8087
+    routes:
+      - name: promotion-service-api
+        paths:
+          - /api/promotions
+          - /api/vouchers
+        strip_path: false
+
+  # 8. Notification Service
+  - name: notification-service
+    url: http://host.docker.internal:8088
+    routes:
+      - name: notification-service-api
+        paths:
+          - /api/notifications
+        strip_path: false
+
+  # 9. Shipper Service
+  - name: shipper-service
+    url: http://host.docker.internal:8089
+    routes:
+      - name: shipper-service-api
+        paths:
+          - /api/shippers
+        strip_path: false
+
+  # 10. Settlement & Payment Service
+  - name: settlement-service
+    url: http://host.docker.internal:8090
+    routes:
+      - name: settlement-service-api
+        paths:
+          - /api/settlement
+          - /api/payments
+        strip_path: false
+
+  # 11. Web BFF (Backend for Frontend)
+  - name: web-bff-service
+    url: http://host.docker.internal:8091
+    routes:
+      - name: web-bff-api
+        paths:
+          - /bff
+        strip_path: false
+
+  # 12. Match Service
+  - name: match-service
+    url: http://host.docker.internal:8092
+    routes:
+      - name: match-service-api
+        paths:
+          - /api/match
+        strip_path: false
+
+  # 13. Tracking Service (HTTP + WebSocket)
+  - name: tracking-service
+    url: http://host.docker.internal:8093
+    routes:
+      - name: tracking-service-http
+        paths:
+          - /api/tracking
+        protocols:
+          - http
+          - https
+        strip_path: false
+      - name: tracking-service-ws
+        paths:
+          - /ws/tracking
+        protocols:
+          - http
+          - https
+          - tcp
+        strip_path: false
+
+  # 14. Analytics Service
+  - name: analytics-service
+    url: http://host.docker.internal:8097
+    routes:
+      - name: analytics-service-api
+        paths:
+          - /api/analytics
+        strip_path: false
+
+  # 15. Simulator Service
+  - name: simulator-service
+    url: http://host.docker.internal:8100
+    routes:
+      - name: simulator-service-api
+        paths:
+          - /api/simulator
+        strip_path: false
+
+  # 16. Fallback to Spring Cloud Gateway
+  - name: spring-cloud-gateway
+    url: http://host.docker.internal:8079
+    routes:
+      - name: spring-gateway-bridge
+        paths:
+          - /gateway-bridge
+        strip_path: true
+
+# ==============================================================================
+# GLOBAL PLUGINS
+# ==============================================================================
+plugins:
+  - name: cors
+    config:
+      origins: ["*"]
+      methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
+      headers: [Accept, Accept-Version, Content-Length, Content-Type, Date, Authorization, X-Request-ID, X-User-Id, X-User-Roles, X-Device-Id]
+      exposed_headers: [X-Request-ID, Content-Disposition]
+      credentials: true
+      max_age: 3600
+
+  - name: correlation-id
+    config:
+      header_name: X-Request-ID
+      generator: uuid
+      echo_downstream: true
+
+  - name: rate-limiting
+    config:
+      minute: 300
+      policy: local
+      fault_tolerant: true

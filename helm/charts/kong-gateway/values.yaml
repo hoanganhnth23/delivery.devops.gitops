@@ -1,0 +1,96 @@
+# Default values for kong-gateway Helm chart on GKE
+replicaCount: 2
+
+image:
+  repository: kong
+  tag: "3.7-alpine"
+  pullPolicy: IfNotPresent
+
+controller:
+  enabled: true
+  image:
+    repository: kong/kubernetes-ingress-controller
+    tag: "3.2"
+    pullPolicy: IfNotPresent
+
+service:
+  type: LoadBalancer
+  httpPort: 80
+  httpsPort: 443
+  annotations:
+    # GKE Cloud Load Balancer integration
+    cloud.google.com/load-balancer-type: "External"
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+plugins:
+  cors:
+    enabled: true
+    origins:
+      - "*"
+    credentials: true
+  rateLimiting:
+    enabled: true
+    minute: 300
+    policy: local # Can be switched to redis on staging/prod
+  correlationId:
+    enabled: true
+    headerName: "X-Request-ID"
+
+ingress:
+  className: kong
+  host: ""
+  tls:
+    enabled: false
+    secretName: ""
+
+# Target services in K8s namespace
+services:
+  auth:
+    name: auth-service
+    port: 8080
+  user:
+    name: user-service
+    port: 8080
+  restaurant:
+    name: restaurant-service
+    port: 8080
+  order:
+    name: order-service
+    port: 8080
+  delivery:
+    name: delivery-service
+    port: 8080
+  search:
+    name: search-service
+    port: 8080
+  promotion:
+    name: promotion-service
+    port: 8080
+  notification:
+    name: notification-service
+    port: 8080
+  shipper:
+    name: shipper-service
+    port: 8080
+  settlement:
+    name: settlement-service
+    port: 8080
+  webBff:
+    name: web-bff-service
+    port: 8080
+  match:
+    name: match-service
+    port: 8080
+  tracking:
+    name: tracking-service
+    port: 8080
+  analytics:
+    name: analytics-service
+    port: 8080

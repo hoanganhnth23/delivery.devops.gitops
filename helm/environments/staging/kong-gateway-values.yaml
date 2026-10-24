@@ -1,0 +1,24 @@
+# Staging environment overrides for Kong Gateway
+replicaCount: 1
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+service:
+  type: LoadBalancer
+  annotations:
+    cloud.google.com/load-balancer-type: "External"
+
+plugins:
+  rateLimiting:
+    minute: 500
+    policy: local
+
+ingress:
+  className: kong
+  host: "" # In staging, access directly via external IP or staging domain
