@@ -118,6 +118,10 @@ services:
     image: delivery-e2e/api-gateway:local
     ports: ["${E2E_GATEWAY_PORT:-8079}:8079"]
     environment:
+      # Every E2E request comes from one host; the production per-client budgets
+      # (30 mutations/min) would throttle the scenarios, not test them.
+      RATE_LIMIT_MUTATION: ${E2E_RATE_LIMIT_MUTATION:-2000}
+      RATE_LIMIT_AUTHENTICATED_READ: ${E2E_RATE_LIMIT_READ:-10000}
       <<: *service-env
       # Gateway, web-bff and dispatch never call internal endpoints (same as the old compose).
       PLATFORM_SECRETS_INTERNAL_SECRET_REQUIRED: "false"
@@ -223,6 +227,7 @@ services:
       MATCHING_INITIAL_DELAY_SECONDS: ${E2E_MATCH_DELAY_SECONDS:-5}
       MATCHING_INITIAL_MAX_DELAY_SECONDS: ${E2E_MATCH_MAX_DELAY_SECONDS:-30}
       SAGA_FINDING_SHIPPER_TIMEOUT_MINUTES: ${E2E_FINDING_SHIPPER_TIMEOUT_MINUTES:-5}
+      APP_SAGA_TIMEOUT_POLL_DELAY_MS: ${E2E_TIMEOUT_POLL_MS:-30000}
     depends_on: *needs-data
 
   match-service:

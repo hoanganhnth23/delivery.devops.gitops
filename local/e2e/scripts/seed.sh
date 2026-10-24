@@ -326,8 +326,8 @@ for shipper_index in $(seq 1 "$SEED_SHIPPER_COUNT"); do
   fi
   SHIPPER_EMAILS+=("$shipper_email")
   SHIPPER_FIXTURES_JSON="$(jq -c --arg id "sandbox-shipper-$shipper_index" --arg email "$shipper_email" \
-    --arg token "$shipper_token" --argjson userId "$shipper_user_id" --argjson lat "$shipper_lat" --argjson lng "$shipper_lng" \
-    '. + [{id:$id,email:$email,token:$token,userId:$userId,lat:$lat,lng:$lng}]' <<< "$SHIPPER_FIXTURES_JSON")"
+    --arg token "$shipper_token" --argjson userId "$shipper_user_id" --argjson shipperId "$shipper_id" --argjson lat "$shipper_lat" --argjson lng "$shipper_lng" \
+    '. + [{id:$id,email:$email,token:$token,userId:$userId,shipperId:$shipperId,lat:$lat,lng:$lng}]' <<< "$SHIPPER_FIXTURES_JSON")"
   if [[ "$shipper_index" == "1" ]]; then
     SHIPPER_EMAIL="$shipper_email"; SHIPPER_TOKEN="$shipper_token"; SHIPPER_USER_ID="$shipper_user_id"; SHIPPER_ID="$shipper_id"
   fi
