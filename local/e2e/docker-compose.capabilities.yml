@@ -1,5 +1,6 @@
-# Overlay for scripts/tier2-capabilities.sh: switches on the two checkout
-# capabilities that staging keeps off (delivery-zone check, stock reservation).
+# Overlay for scripts/tier2-capabilities.sh: switches on capabilities that
+# staging keeps off (delivery-zone check, stock reservation, post-pickup
+# delivery exceptions, refund cases).
 # The script layers it on and removes it again; the base stack runs without it.
 services:
   restaurant-service:
@@ -10,3 +11,10 @@ services:
     environment:
       ORDER_SERVICEABILITY_ENFORCEMENT_ENABLED: "true"
       ORDER_INVENTORY_RESERVATION_ENABLED: "true"
+  delivery-service:
+    environment:
+      DELIVERY_EXCEPTION_ENABLED: "true"
+  settlement-service:
+    environment:
+      REFUND_PROCESSING_ENABLED: "true"
+      SETTLEMENT_DELIVERY_EXCEPTION_PROCESSING_ENABLED: "true"

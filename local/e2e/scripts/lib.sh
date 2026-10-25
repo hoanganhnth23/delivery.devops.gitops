@@ -34,6 +34,9 @@ done < <(jq -r '.shippers[] | [.token, .shipperId, .lat, .lng] | @tsv' "$seed_re
 CUSTOMER_EMAIL="$(jq -er .customerEmail "$seed_result")"
 OWNER_EMAIL="$(jq -er .ownerEmail "$seed_result")"
 SHIP_EMAIL=(); while IFS= read -r e; do SHIP_EMAIL+=("$e"); done < <(jq -r '.shippers[].email' "$seed_result")
+RUN_ID="$(jq -er .runId "$seed_result")"
+OUTSIDER="$(jq -er .outsiderToken "$seed_result")"      # a second customer with no orders here
+OUTSIDER_EMAIL="outsider+$RUN_ID@test.dev"
 
 # Access tokens live 15 minutes and a full tier-2 run is longer: log in again
 # (real password login through the Gateway) once the current set is 10 minutes old.
@@ -182,6 +185,27 @@ only_online() { # SHIPPER_INDEX... (none = everybody offline)
   sleep 3   # let the location projection reach match-service
 }
 
+
+# One ADMIN per run, created on first use with Auth's one-shot operator runner
+# (there is no public way to become admin). -> ADMIN (access token)
+ADMIN=""
+admin_token() {
+  [ -n "$ADMIN" ] && return 0
+  local email="admin+$RUN_ID@test.dev" _
+  "${COMPOSE_COMMAND[@]}" run --rm --no-deps \
+    -e APP_OPERATOR_ADMIN_PROVISIONING_ENABLED=true \
+    -e APP_OPERATOR_ADMIN_PROVISIONING_EMAIL="$email" \
+    -e APP_OPERATOR_ADMIN_PROVISIONING_PASSWORD="${PASS:-Password123!}" \
+    -e APP_OPERATOR_ADMIN_PROVISIONING_EXIT_AFTER_RUN=true \
+    auth-service >/dev/null 2>&1 || fail "admin provisioning run failed"
+  for _ in $(seq 1 30); do
+    ADMIN="$(login "$email")"; [ -n "$ADMIN" ] && return 0
+    sql auth_db "UPDATE auth_account SET lifecycle_status = 'ACTIVE' WHERE email = '$email'
+      AND lifecycle_status = 'PENDING_EMAIL_VERIFICATION';" >/dev/null
+    sleep 2
+  done
+  fail "admin $email cannot log in"
+}
 
 # ---------------------------------------------------------------- runner
 run_scenarios() { # SUITE_TITLE ID:function... ; honours ONLY_SCENARIOS / SLOW_SCENARIOS
