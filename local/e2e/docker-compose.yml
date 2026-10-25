@@ -238,6 +238,7 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/match_db
       MATCH_OUTBOX_RELAY_ENABLED: "true"
       MATCH_CANCELLATION_PROJECTION_RELAY_ENABLED: "true"
+      MATCHING_OFFER_WAITING_TIMEOUT_SECONDS: ${E2E_OFFER_WINDOW_SECONDS:-30}
     depends_on: *needs-data
 
   tracking-service:

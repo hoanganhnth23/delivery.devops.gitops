@@ -8,7 +8,7 @@
 # tier2-capabilities.sh.
 #
 #   TIER2_ONLY        space-separated subset, e.g. "S05 S08"
-#   TIER2_SKIP_SLOW   true to skip S06 (waits out the real 180 s offer window)
+#   TIER2_SKIP_SLOW   true to skip S06/S14 (they wait out real offer windows)
 set -uo pipefail
 
 SUITE=tier2
@@ -131,8 +131,25 @@ s06() { # offer expires unanswered -> next shipper; the silent one is excluded
   finish "$next" "$delivery" "$ORDER"
 }
 
+s14() { # two shippers ignore the offer in turn -> the third still gets it (Uber-style: short offers, keep searching)
+  only_online 0 1 2
+  new_order; confirm "$ORDER"
+  wait_offer "$ORDER" 90 0 1 2; local first="$OFFERED"
+  log "shipper#$first stays silent"
+  local rest=() i; for i in 0 1 2; do [ "$i" = "$first" ] || rest+=("$i"); done
+  wait_offer "$ORDER" $((OFFER_WINDOW_SECONDS + 90)) "${rest[@]}"; local second="$OFFERED"
+  offer_of "$first"; [ "$OFFER_ORDER" = "$ORDER" ] && fail "silent shipper#$first still holds the offer"
+  log "shipper#$second stays silent too"
+  local third; for i in "${rest[@]}"; do [ "$i" = "$second" ] || third="$i"; done
+  wait_offer "$ORDER" $((OFFER_WINDOW_SECONDS + 90)) "$third"; local delivery="$OFFER_DELIVERY"
+  order_status "$ORDER"; [ "$STATUS" = SHIPPER_NOT_FOUND ] && fail "order gave up after two silent shippers"
+  respond "$third" "$ORDER" ACCEPT; expect_ok "shipper#$third accepts after two silent offers"
+  wait_status "$ORDER" ASSIGNED 60
+  finish "$third" "$delivery" "$ORDER"
+}
+
 # ---------------------------------------------------------------- runner
-SLOW_SCENARIOS="S06"; [ "${TIER2_SKIP_SLOW:-false}" = true ] || SLOW_SCENARIOS=""
+SLOW_SCENARIOS="S06 S14"; [ "${TIER2_SKIP_SLOW:-false}" = true ] || SLOW_SCENARIOS=""
 ONLY_SCENARIOS="${TIER2_ONLY:-}"
-run_scenarios "Tier 2" S03:s03 S10:s10 S04:s04 S11:s11 S07:s07 S05+S09:s05_s09 S08:s08 S06:s06
+run_scenarios "Tier 2" S03:s03 S10:s10 S04:s04 S11:s11 S07:s07 S05+S09:s05_s09 S08:s08 S06:s06 S14:s14
 exit $?

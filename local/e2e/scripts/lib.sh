@@ -12,7 +12,7 @@ if [ -n "${COMPOSE_FILE:-}" ]; then
 else
   COMPOSE_COMMAND=(docker compose -f "$SCRIPT_DIR/../docker-compose.yml" -p "${E2E_PROJECT:-delivery-e2e}")
 fi
-OFFER_WINDOW_SECONDS=180   # match-service SingleOfferPolicy.WAITING_TIMEOUT_SECONDS
+OFFER_WINDOW_SECONDS="${E2E_OFFER_WINDOW_SECONDS:-30}"   # match: matching.single-offer.waiting-timeout-seconds
 
 seed_result="$(mktemp)"
 trap 'rm -f "$seed_result"' EXIT
