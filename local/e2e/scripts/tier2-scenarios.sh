@@ -4,7 +4,8 @@
 # Each scenario places its own order, controls which seeded shippers are online,
 # and leaves every order it created in a terminal state. A failing scenario is
 # reported and the next one still runs. S12/S13 are covered by the golden flow
-# (verify-mvp-cod-flow.sh); S01/S02 depend on feature flags that are off.
+# (verify-mvp-cod-flow.sh); S01/S02 need flags that staging keeps off and run in
+# tier2-capabilities.sh.
 #
 #   TIER2_ONLY        space-separated subset, e.g. "S05 S08"
 #   TIER2_SKIP_SLOW   true to skip S06 (waits out the real 180 s offer window)

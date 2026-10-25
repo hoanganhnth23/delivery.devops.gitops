@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # One command: build images, start the stack, run the golden COD flow, the
-# tier-2 business scenarios and the tier-3 fault scenarios, tear down.
+# tier-2 business scenarios (plus S01/S02 with the zone/stock flags on) and the
+# tier-3 fault scenarios, tear down.
 # (Tier 4, the browser specs, lives in delivery.client.web-portal:
 #  scripts/run-live-e2e.sh, which reuses this stack.)
 #   E2E_SKIP_BUILD=true  reuse images from a previous build.sh
 #   E2E_KEEP=true        leave the stack running afterwards (for debugging / web specs)
-#   E2E_TIER2=false / E2E_TIER3=false  skip a tier
-#   TIER2_ONLY / TIER2_SKIP_SLOW / TIER3_ONLY  see the tier scripts
+#   E2E_TIER2=false / E2E_TIER2C=false / E2E_TIER3=false  skip a tier
+#   TIER2_ONLY / TIER2_SKIP_SLOW / TIER2C_ONLY / TIER3_ONLY  see the tier scripts
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 export E2E_PROJECT="${E2E_PROJECT:-delivery-e2e}"
@@ -41,5 +42,6 @@ export SEED_WAIT_SHIPPER_IDENTITY_PROJECTION=true
 bash "$HERE/scripts/verify-mvp-cod-flow.sh"
 status=0
 [ "${E2E_TIER2:-true}" = "false" ] || bash "$HERE/scripts/tier2-scenarios.sh" || status=1
+[ "${E2E_TIER2C:-true}" = "false" ] || bash "$HERE/scripts/tier2-capabilities.sh" || status=1
 [ "${E2E_TIER3:-true}" = "false" ] || bash "$HERE/scripts/tier3-resilience.sh" || status=1
 exit $status
