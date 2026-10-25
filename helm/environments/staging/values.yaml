@@ -48,27 +48,7 @@ _defaults:
       interval: 15s
       scrapeTimeout: 10s
 
-api-gateway:
-  fullnameOverride: api-gateway
-  replicaCount: 1
-  image:
-    repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/api-gateway
-    tag: "staging-cbdb9a2124a30e21f1b5f45387236b0e35cb46ea"
-    # Tag staging-<sha> có thể bị build đè (CI chạy lại cùng commit), nên luôn kéo lại.
-    pullPolicy: Always
-  service:
-    port: 8079
-    targetPort: 8079
-  resources: *serviceResources
-  metrics: *serviceMetrics
-  envFrom: *platformEnvFrom
-  secretMounts: *runtimeSecretMounts
-  env:
-    - name: SPRING_PROFILES_ACTIVE
-      value: "staging"
-    # Rate-limit theo IP (catalog 120/phút) chặn k6 bắn từ 1 IP; staging tắt để đo đúng.
-    - name: RATE_LIMIT_ENABLED
-      value: "false"
+# api-gateway (Spring) đã bỏ: Kong là cửa vào duy nhất (helm/charts/kong-gateway, edge.*).
 
 auth-service:
   fullnameOverride: auth-service

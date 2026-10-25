@@ -36,21 +36,6 @@ data:
   LIVESTREAM_SERVICE_URL: "http://livestream-service:8094"
   PROMOTION_SERVICE_URL: "http://promotion-service:8096"
 
-  # api-gateway: thay lb://... bằng địa chỉ Service
-  APP_AUTH_SERVICE_URI: "http://auth-service:8081"
-  APP_USER_SERVICE_URI: "http://user-service:8082"
-  APP_RESTAURANT_SERVICE_URI: "http://restaurant-service:8083"
-  APP_ORDER_SERVICE_URI: "http://order-service:8084"
-  APP_DELIVERY_SERVICE_URI: "http://delivery-service:8085"
-  APP_SEARCH_SERVICE_URI: "http://search-service:8088"
-  APP_NOTIFICATION_SERVICE_URI: "http://notification-service:8091"
-  APP_TRACKING_SERVICE_URI: "http://tracking-service:8093"
-  APP_TRACKING_SERVICE_WS_URI: "ws://tracking-service:8093"
-  APP_SHIPPER_SERVICE_URI: "http://shipper-service:8089"
-  APP_SETTLEMENT_SERVICE_URI: "http://settlement-service:8090"
-  APP_FLASHSALE_SERVICE_URI: "http://flashsale-service:8092"
-  APP_LIVESTREAM_SERVICE_URI: "http://livestream-service:8094"
-  APP_PROMOTION_SERVICE_URI: "http://promotion-service:8096"
-  APP_ANALYTICS_SERVICE_URI: "http://analytics-service:8097"
-  WEB_BFF_SERVICE_URI: "http://web-bff-service:8091"
-  WEB_BFF_GATEWAY_BASE_URL: "http://api-gateway:8079"
+  # Kong là cửa vào duy nhất (đã bỏ Spring api-gateway). web-bff gọi API qua Kong trong
+  # cụm để giữ đúng allowlist + rate-limit như client ngoài.
+  WEB_BFF_GATEWAY_BASE_URL: "http://kong-kong-proxy:80"

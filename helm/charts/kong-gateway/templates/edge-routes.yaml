@@ -1,0 +1,82 @@
+{{- /*
+Cửa vào thay Spring api-gateway: mỗi nhóm trong files/edge-routes.yaml (sinh từ
+GatewayRouteConfig.java bằng scripts/gen-kong-edge-routes.py) thành 1 Ingress với đúng
+method + path regex + plugin rate-limit theo loại. Path không có trong danh sách -> Kong 404.
+*/ -}}
+{{- if .Values.edge.enabled }}
+{{- $root := . }}
+{{- $routes := (.Files.Get "files/edge-routes.yaml" | fromYaml).routes }}
+{{- range $r := $routes }}
+{{- $up := index $root.Values.edge.upstreams $r.upstream }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: edge-{{ $r.name }}
+  labels:
+    app.kubernetes.io/name: kong-gateway
+    app.kubernetes.io/instance: {{ $root.Release.Name }}
+  annotations:
+    konghq.com/methods: {{ join "," $r.methods | quote }}
+    konghq.com/strip-path: "false"
+    konghq.com/plugins: {{ printf "%s-cors, %s-correlation-id, %s-rl-%s" $root.Release.Name $root.Release.Name $root.Release.Name ($r.rateLimit | replace "_" "-") | quote }}
+spec:
+  ingressClassName: {{ $root.Values.ingress.className | default "kong" }}
+  rules:
+    - {{- if $root.Values.ingress.host }}
+      host: {{ $root.Values.ingress.host | quote }}
+      {{- end }}
+      http:
+        paths:
+          {{- range $p := $r.paths }}
+          - path: {{ printf "/~%s" (trimPrefix "^" $p) | quote }}
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: {{ $up.name }}
+                port:
+                  number: {{ $up.port }}
+          {{- end }}
+{{- end }}
+
+{{- range $cat, $limit := .Values.edge.rateLimits }}
+---
+# Loại rate-limit "{{ $cat }}" (như GatewayRateLimitFilter): đếm theo IP trong cửa sổ 1 phút.
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: {{ $root.Release.Name }}-rl-{{ $cat | replace "_" "-" }}
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+plugin: rate-limiting
+config:
+  minute: {{ $limit.minute | int64 }}
+  limit_by: ip
+  policy: {{ $root.Values.edge.rateLimitPolicy | quote }}
+  {{- if eq $root.Values.edge.rateLimitPolicy "redis" }}
+  redis:
+    host: {{ $root.Values.edge.redis.host | quote }}
+    port: {{ $root.Values.edge.redis.port }}
+  {{- end }}
+  # fail-open của gateway cũ: Redis lỗi thì cho qua (true) hay chặn (false).
+  fault_tolerant: {{ $limit.failOpen }}
+  hide_client_headers: false
+{{- end }}
+---
+# Client không được tự khai danh tính: service tự lấy actor từ JWT (JWKS), header này bị xoá.
+apiVersion: configuration.konghq.com/v1
+kind: KongClusterPlugin
+metadata:
+  name: {{ .Release.Name }}-strip-identity-headers
+  annotations:
+    kubernetes.io/ingress.class: {{ .Values.ingress.className | default "kong" }}
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  labels:
+    global: "true"
+plugin: request-transformer
+config:
+  remove:
+    headers:
+      - X-User-Id
+      - X-Role
+{{- end }}

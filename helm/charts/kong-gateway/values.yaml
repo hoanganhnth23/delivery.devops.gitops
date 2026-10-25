@@ -99,3 +99,35 @@ services:
   analytics:
     name: analytics-service
     port: 8080
+
+# Cửa vào thay hẳn Spring api-gateway (route sinh từ GatewayRouteConfig.java, xem
+# templates/edge-routes.yaml). Khi bật, tắt ingress.upstream và route theo service ở trên.
+edge:
+  enabled: false
+  # Hạn mức mặc định = application.properties của api-gateway cũ (mỗi IP / phút).
+  rateLimits:
+    public_auth: {minute: 10, failOpen: false}
+    user_registration: {minute: 10, failOpen: false}
+    public_catalog: {minute: 120, failOpen: true}
+    authenticated_read: {minute: 300, failOpen: true}
+    mutation: {minute: 30, failOpen: false}
+    websocket_connection: {minute: 10, failOpen: false}
+  rateLimitPolicy: redis
+  redis:
+    host: redis
+    port: 6379
+  upstreams:
+    auth: {name: auth-service, port: 8081}
+    user: {name: user-service, port: 8082}
+    restaurant: {name: restaurant-service, port: 8083}
+    order: {name: order-service, port: 8084}
+    delivery: {name: delivery-service, port: 8085}
+    search: {name: search-service, port: 8088}
+    shipper: {name: shipper-service, port: 8089}
+    settlement: {name: settlement-service, port: 8090}
+    notification: {name: notification-service, port: 8091}
+    webBff: {name: web-bff-service, port: 8091}
+    flashsale: {name: flashsale-service, port: 8092}
+    tracking: {name: tracking-service, port: 8093}
+    promotion: {name: promotion-service, port: 8096}
+    analytics: {name: analytics-service, port: 8097}
