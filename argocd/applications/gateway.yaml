@@ -3,6 +3,9 @@ kind: Application
 metadata:
   name: kong-gateway-staging
   namespace: argocd
+  annotations:
+    # Sau kong-staging (CRD KongPlugin + IngressClass kong).
+    argocd.argoproj.io/sync-wave: "1"
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
@@ -24,3 +27,9 @@ spec:
     syncOptions:
       - CreateNamespace=true
       - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 20s
+        factor: 2
+        maxDuration: 5m

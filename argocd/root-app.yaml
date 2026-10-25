@@ -15,9 +15,7 @@ spec:
       # Staging là môi trường chạy chính; production chỉ để tham chiếu luồng,
       # không deploy chung cụm (tránh gấp đôi chi phí). Apply tay nếu cần.
       # Branch: staging -> môi trường staging, main -> production.
-      # gateway.yaml (Kong) tạm tắt: cần CRD Kong + LoadBalancer tốn phí; k6 và
-      # client đi thẳng vào api-gateway qua port-forward.
-      exclude: '{production*.yaml,gateway.yaml}'
+      exclude: 'production*.yaml'
   destination:
     server: 'https://kubernetes.default.svc'
     namespace: argocd

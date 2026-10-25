@@ -2,6 +2,8 @@
 apiVersion: configuration.konghq.com/v1
 kind: KongPlugin
 metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
   name: {{ .Release.Name }}-cors
   labels:
     app.kubernetes.io/name: kong-gateway
@@ -42,6 +44,8 @@ config:
 apiVersion: configuration.konghq.com/v1
 kind: KongPlugin
 metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
   name: {{ .Release.Name }}-correlation-id
   labels:
     app.kubernetes.io/name: kong-gateway
@@ -58,14 +62,36 @@ config:
 apiVersion: configuration.konghq.com/v1
 kind: KongPlugin
 metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
   name: {{ .Release.Name }}-rate-limiting
   labels:
     app.kubernetes.io/name: kong-gateway
     app.kubernetes.io/instance: {{ .Release.Name }}
 plugin: rate-limiting
 config:
-  minute: {{ .Values.plugins.rateLimiting.minute }}
+  minute: {{ .Values.plugins.rateLimiting.minute | int64 }}
   policy: {{ .Values.plugins.rateLimiting.policy | quote }}
   fault_tolerant: true
 ---
+{{- end }}
+
+{{- if .Values.plugins.prometheus.enabled }}
+---
+# Plugin toàn cục: Kong xuất metric (request, latency, upstream) ở cổng status /metrics.
+apiVersion: configuration.konghq.com/v1
+kind: KongClusterPlugin
+metadata:
+  name: {{ .Release.Name }}-prometheus
+  annotations:
+    kubernetes.io/ingress.class: {{ .Values.ingress.className | default "kong" }}
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  labels:
+    global: "true"
+plugin: prometheus
+config:
+  status_code_metrics: true
+  latency_metrics: true
+  upstream_health_metrics: true
+  bandwidth_metrics: true
 {{- end }}

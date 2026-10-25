@@ -22,6 +22,16 @@ spec:
       {{- end }}
       http:
         paths:
+          {{- if .Values.ingress.upstream }}
+          # Một đường duy nhất: Kong (CORS, rate-limit, request id) -> api-gateway (JWT + route).
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Values.ingress.upstream.name }}
+                port:
+                  number: {{ .Values.ingress.upstream.port }}
+          {{- else }}
           # 1. Auth Service
           - path: /.well-known/jwks.json
             pathType: Exact
@@ -182,3 +192,4 @@ spec:
                 name: {{ .Values.services.analytics.name }}
                 port:
                   number: {{ .Values.services.analytics.port }}
+          {{- end }}

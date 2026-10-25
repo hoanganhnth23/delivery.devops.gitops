@@ -1,0 +1,73 @@
+# Kong proxy + Kong Ingress Controller (chart chính thức, kèm CRD) cho staging.
+# Cửa vào công khai duy nhất: IP tĩnh regional kong-staging-ip (34.87.64.137), giữ
+# nguyên khi Service bị xoá/tạo lại. Route + plugin nằm ở app kong-gateway-staging.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kong-staging
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: 'https://charts.konghq.com'
+    chart: kong
+    targetRevision: 3.4.1
+    helm:
+      releaseName: kong
+      values: |
+        replicaCount: 1
+        image:
+          repository: kong
+          tag: "3.9"
+        env:
+          database: "off"
+          # Không lộ phiên bản Kong trong header trả về.
+          headers: "off"
+        admin:
+          enabled: false
+        proxy:
+          type: LoadBalancer
+          loadBalancerIP: 34.87.64.137
+          annotations:
+            cloud.google.com/load-balancer-type: "External"
+          tls:
+            enabled: false
+        ingressController:
+          enabled: true
+          ingressClass: kong
+          resources:
+            requests:
+              cpu: 50m
+              memory: 96Mi
+            limits:
+              memory: 256Mi
+        resources:
+          requests:
+            cpu: 100m
+            memory: 192Mi
+          limits:
+            cpu: "1"
+            memory: 512Mi
+        serviceMonitor:
+          enabled: true
+          interval: 15s
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: delivery-staging
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 20s
+        factor: 2
+        maxDuration: 5m
