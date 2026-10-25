@@ -5,8 +5,8 @@
 #   S02  stock reservation: 1 portion left -> the 2nd order is refused, cancelling
 #        the 1st returns the portion and a new order succeeds.
 #   S16  failed delivery after pick-up: report -> one retry -> fail again ->
-#        RETURNING -> restaurant confirms RETURNED, shipper is free, settlement
-#        opens a MANUAL_REVIEW case. S16R: retry then deliver -> RESOLVED.
+#        RETURNING -> restaurant confirms RETURNED, the order ends CANCELLED,
+#        shipper is free, settlement opens a MANUAL_REVIEW case. S16R: retry then deliver -> RESOLVED.
 #   S18  cancelled COD order -> refund case NO_REFUND_REQUIRED, visible to its
 #        customer only.
 # The script restarts those services with docker-compose.capabilities.yml and
@@ -202,9 +202,9 @@ s16() { # failed delivery -> one retry -> fails again -> returned to the restaur
   req POST "/api/deliveries/$DELIVERY/exceptions/return/confirm" "$OWNER"; expect_ok "restaurant confirms the return"
   [ "$(jq -r .data.status <<<"$BODY")" = RETURNED ] || fail "confirm gave ${BODY:0:200}"
   [ "$(delivery_status "$ORDER")" = RETURNED ] || fail "delivery is $(delivery_status "$ORDER"), expected RETURNED"
-  # Order has no "returned" state and does not consume the exception events (open
-  # product question, see the plan): record what the customer sees, do not judge it.
-  sleep 3; order_status "$ORDER"; log "returned; customer still sees order status $STATUS"
+  wait_status "$ORDER" CANCELLED 30   # the customer sees a failed delivery as a cancelled order
+  grep -q "Giao hàng thất bại" <<<"$BODY" || fail "cancelled order does not say the delivery failed: ${BODY:0:300}"
+  log "returned; customer order CANCELLED (delivery failed)"
   refund_case "$ORDER" 60
   [ "$REFUND" = "DELIVERY_DISPUTE MANUAL_REVIEW" ] || fail "refund case is '$REFUND', expected DELIVERY_DISPUTE MANUAL_REVIEW"
   log "settlement: $REFUND"

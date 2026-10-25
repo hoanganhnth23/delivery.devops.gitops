@@ -77,7 +77,9 @@ s07() { # the only candidate rejects -> no one left -> SHIPPER_NOT_FOUND everywh
   new_order; confirm "$ORDER"
   wait_offer "$ORDER" 90 0
   respond 0 "$ORDER" REJECT; expect_ok "shipper#0 rejects"
-  wait_status "$ORDER" SHIPPER_NOT_FOUND 240
+  # Rematch budget is fixed in dispatch (5 tries, 15 s x1.5 ~ 200 s) plus match
+  # scheduling lag; wait it out so the search does not leak into later scenarios.
+  wait_status "$ORDER" SHIPPER_NOT_FOUND 420
   local d; d="$(delivery_status "$ORDER")"
   [ "$d" = SHIPPER_NOT_FOUND ] || fail "delivery status is $d, customer sees SHIPPER_NOT_FOUND"
   log "customer + delivery both SHIPPER_NOT_FOUND; dispatch case=$(case_status "$ORDER")"
@@ -182,6 +184,9 @@ s17() { # customer cancels after a shipper accepted -> delivery cancelled, shipp
   respond 0 "$first" ACCEPT; expect_ok "shipper#0 accepts"
   wait_status "$first" ASSIGNED 60
   cancel "$first"; expect_ok "customer cancels an ASSIGNED order"
+  # Delivery holds the pickup as soon as it admits the cancel, before order.cancelled lands.
+  req PUT "/api/deliveries/$old_delivery/status?status=PICKED_UP" "${SHIP_TOKEN[0]}"
+  expect_denied "shipper picking up right after the customer cancelled"
   wait_status "$first" CANCELLED 60
   local deadline=$((SECONDS + 60)) d
   while (( SECONDS < deadline )); do d="$(delivery_status "$first")"; [ "$d" = CANCELLED ] && break; sleep 2; done
@@ -195,11 +200,11 @@ s17() { # customer cancels after a shipper accepted -> delivery cancelled, shipp
   respond 0 "$second" ACCEPT; expect_ok "freed shipper#0 accepts the next order"
   wait_status "$second" ASSIGNED 60
   req PUT "/api/deliveries/$delivery/status?status=PICKED_UP" "${SHIP_TOKEN[0]}"; expect_ok "shipper#0 picks up"
-  # Order judges the cancel on its own copy of the status, so let PICKED_UP reach it
-  # first. (Cancelling inside that gap still succeeds: known race, see the plan.)
+  # No wait: Order still believes ASSIGNED here; Delivery (the authority) must refuse.
+  cancel "$second"; expect_denied "customer cancelling right after pick-up"
+  log "cancel right after pick-up refused (HTTP $CODE) ${BODY:0:120}"
   wait_status "$second" PICKED_UP 30
-  cancel "$second"; expect_denied "customer cancelling after pick-up"
-  log "after pick-up the customer cancel is refused (HTTP $CODE)"
+  [ "$(delivery_status "$second")" = PICKED_UP ] || fail "delivery is $(delivery_status "$second") after the refused cancel"
   local s; for s in DELIVERING DELIVERED; do
     req PUT "/api/deliveries/$delivery/status?status=$s" "${SHIP_TOKEN[0]}"; expect_ok "shipper#0 marks $s"
   done
