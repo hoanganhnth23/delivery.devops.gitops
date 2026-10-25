@@ -65,12 +65,13 @@ spec:
           adminPassword: "admin"
           persistence:
             enabled: false
+          # Đo thật lúc rảnh: 224Mi / limit 256Mi (88%) -> nâng trần, giữ request.
           resources:
             requests:
               cpu: 50m
-              memory: 128Mi
+              memory: 192Mi
             limits:
-              memory: 256Mi
+              memory: 384Mi
           sidecar:
             dashboards:
               enabled: true

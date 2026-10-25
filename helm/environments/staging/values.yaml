@@ -53,7 +53,9 @@ api-gateway:
   replicaCount: 1
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/api-gateway
-    tag: "latest"
+    tag: "staging-cbdb9a2124a30e21f1b5f45387236b0e35cb46ea"
+    # Tag staging-<sha> có thể bị build đè (CI chạy lại cùng commit), nên luôn kéo lại.
+    pullPolicy: Always
   service:
     port: 8079
     targetPort: 8079
@@ -71,6 +73,8 @@ auth-service:
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/auth-service
     tag: "staging-b67b36f1d10ff6a2e6a066fa710aea94545c9f44"
+    # Tag staging-<sha> có thể bị build đè (CI chạy lại cùng commit), nên luôn kéo lại.
+    pullPolicy: Always
   service:
     port: 8081
     targetPort: 8081
@@ -109,7 +113,9 @@ user-service:
   replicaCount: 1
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/user-service
-    tag: "latest"
+    tag: "staging-79f202e33af3368b87a6db490a69cebf089c45ac"
+    # Tag staging-<sha> có thể bị build đè (CI chạy lại cùng commit), nên luôn kéo lại.
+    pullPolicy: Always
   service:
     port: 8082
     targetPort: 8082
@@ -138,6 +144,8 @@ restaurant-service:
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/restaurant-service
     tag: "staging-28abe8bf08d47f0eb810e08c969e0214badfc9fc"
+    # Tag staging-<sha> có thể bị build đè (CI chạy lại cùng commit), nên luôn kéo lại.
+    pullPolicy: Always
   service:
     port: 8083
     targetPort: 8083
@@ -166,6 +174,8 @@ order-service:
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/order-service
     tag: "staging-e96e6d93b3a5a9b4698c87e99a70bdf243e74e7d"
+    # Tag staging-<sha> có thể bị build đè (CI chạy lại cùng commit), nên luôn kéo lại.
+    pullPolicy: Always
   service:
     port: 8084
     targetPort: 8084
@@ -193,7 +203,9 @@ delivery-service:
   replicaCount: 1
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/delivery-service
-    tag: "latest"
+    tag: "staging-8c77e2d7e6cd0843851ed3d4a3c53cd0fe22b056"
+    # Tag staging-<sha> có thể bị build đè (CI chạy lại cùng commit), nên luôn kéo lại.
+    pullPolicy: Always
   service:
     port: 8085
     targetPort: 8085
@@ -221,7 +233,9 @@ shipper-service:
   replicaCount: 1
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/shipper-service
-    tag: "latest"
+    tag: "staging-c7202d899f20c61abfcafd8123a2b9758963971c"
+    # Tag staging-<sha> có thể bị build đè (CI chạy lại cùng commit), nên luôn kéo lại.
+    pullPolicy: Always
   service:
     port: 8089
     targetPort: 8089
@@ -278,6 +292,8 @@ notification-service:
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/notification-service
     tag: "staging-5c5e50002371a8e0905f8562c87a74dc764fca0a"
+    # Tag staging-<sha> có thể bị build đè (CI chạy lại cùng commit), nên luôn kéo lại.
+    pullPolicy: Always
   service:
     port: 8091
     targetPort: 8091
@@ -306,6 +322,8 @@ match-service:
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/match-service
     tag: "staging-e5f4b442b55e453168018798792b790369d850b0"
+    # Tag staging-<sha> có thể bị build đè (CI chạy lại cùng commit), nên luôn kéo lại.
+    pullPolicy: Always
   service:
     port: 8092
     targetPort: 8092
@@ -333,7 +351,9 @@ flashsale-service:
   replicaCount: 1
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/flashsale-service
-    tag: "latest"
+    tag: "staging-98ae840add7200eb363302825af721c07c12fd2a"
+    # Tag staging-<sha> có thể bị build đè (CI chạy lại cùng commit), nên luôn kéo lại.
+    pullPolicy: Always
   service:
     port: 8092
     targetPort: 8092
@@ -362,6 +382,8 @@ tracking-service:
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/tracking-service
     tag: "staging-6661d10296fdeec57f8fb1b0789c55b4fa66e62d"
+    # Tag staging-<sha> có thể bị build đè (CI chạy lại cùng commit), nên luôn kéo lại.
+    pullPolicy: Always
   service:
     port: 8093
     targetPort: 8093
@@ -389,7 +411,9 @@ routing-service:
   replicaCount: 1
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/routing-service
-    tag: "latest"
+    tag: "staging-36bf89675a1809ab3a590ea85db185215d4402a4"
+    # Tag staging-<sha> có thể bị build đè (CI chạy lại cùng commit), nên luôn kéo lại.
+    pullPolicy: Always
   service:
     port: 8094
     targetPort: 8094
@@ -406,7 +430,9 @@ livestream-service:
   replicaCount: 1
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/livestream-service
-    tag: "latest"
+    tag: "staging-5e3a59fb21a8fb5a74bf0b7e84aa03096d5c34fe"
+    # Tag staging-<sha> có thể bị build đè (CI chạy lại cùng commit), nên luôn kéo lại.
+    pullPolicy: Always
   service:
     port: 8094
     targetPort: 8094
@@ -435,6 +461,8 @@ dispatch-service:
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/dispatch-service
     tag: "staging-78d47a3023de69565d1d9e930d545a6f23016c8b"
+    # Tag staging-<sha> có thể bị build đè (CI chạy lại cùng commit), nên luôn kéo lại.
+    pullPolicy: Always
   service:
     port: 8095
     targetPort: 8095
@@ -462,7 +490,9 @@ promotion-service:
   replicaCount: 1
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/promotion-service
-    tag: "latest"
+    tag: "staging-c1d89325f1799ff743be1e33ca06b49e2d079979"
+    # Tag staging-<sha> có thể bị build đè (CI chạy lại cùng commit), nên luôn kéo lại.
+    pullPolicy: Always
   service:
     port: 8096
     targetPort: 8096
@@ -490,7 +520,9 @@ analytics-service:
   replicaCount: 1
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/analytics-service
-    tag: "latest"
+    tag: "staging-544f7adc6b5145cc02f014562556d351a94c413f"
+    # Tag staging-<sha> có thể bị build đè (CI chạy lại cùng commit), nên luôn kéo lại.
+    pullPolicy: Always
   service:
     port: 8097
     targetPort: 8097
@@ -518,7 +550,9 @@ search-service:
   replicaCount: 1
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/search-service
-    tag: "latest"
+    tag: "staging-494359422116bace7f3c09bce1e2036a0535bef3"
+    # Tag staging-<sha> có thể bị build đè (CI chạy lại cùng commit), nên luôn kéo lại.
+    pullPolicy: Always
   service:
     port: 8088
     targetPort: 8088
@@ -536,6 +570,8 @@ web-bff-service:
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/web-bff-service
     tag: "staging-e1fdd7d91b2d2cdc31ffccaa3fbbb2dd84f021af"
+    # Tag staging-<sha> có thể bị build đè (CI chạy lại cùng commit), nên luôn kéo lại.
+    pullPolicy: Always
   service:
     port: 8091
     targetPort: 8091
