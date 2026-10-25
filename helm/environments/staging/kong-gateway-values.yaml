@@ -1,21 +1,25 @@
 # Staging: proxy + ingress controller do chart Kong chính thức cài
-# (argocd/applications/kong-staging.yaml). Chart này chỉ còn plugin + Ingress.
+# (argocd/applications/kong-staging.yaml). Chart này chỉ còn plugin + route.
 controller:
   enabled: false
 
 plugins:
-  # Trần rất cao cho staging: k6 bắn từ 1 IP, trần thật (500/phút) sẽ trả 429 và làm
-  # sai kết quả test tải. Vẫn bật để đo đúng chi phí plugin trên mỗi request.
-  rateLimiting:
-    enabled: true
-    minute: 1000000
-    policy: local
   prometheus:
     enabled: true
 
 ingress:
   className: kong
   host: "" # Gọi thẳng IP tĩnh 34.87.64.137 cho tới khi có domain staging
-  upstream:
-    name: api-gateway
-    port: 8079
+
+# Kong là cửa vào duy nhất (đã bỏ Spring api-gateway): route + method + rate-limit theo loại.
+edge:
+  enabled: true
+  # k6 bắn từ 1 IP: hạn mức thật (10-300/phút) sẽ trả 429 và làm sai kết quả test tải.
+  # Vẫn bật plugin (policy redis) để đo đúng chi phí rate-limit trên mỗi request.
+  rateLimits:
+    public_auth: {minute: 1000000, failOpen: false}
+    user_registration: {minute: 1000000, failOpen: false}
+    public_catalog: {minute: 1000000, failOpen: true}
+    authenticated_read: {minute: 1000000, failOpen: true}
+    mutation: {minute: 1000000, failOpen: false}
+    websocket_connection: {minute: 1000000, failOpen: false}

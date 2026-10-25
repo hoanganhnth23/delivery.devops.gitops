@@ -1,0 +1,649 @@
+# SINH TỰ ĐỘNG bởi scripts/gen-kong-edge-routes.py từ GatewayRouteConfig.java. Không sửa tay.
+routes:
+  - name: web-bff-service-authenticated-read
+    upstream: webBff
+    rateLimit: authenticated_read
+    websocket: false
+    methods: [GET, HEAD, OPTIONS]
+    paths:
+      - '^/bff(/.*)?$'
+  - name: web-bff-service-mutation
+    upstream: webBff
+    rateLimit: mutation
+    websocket: false
+    methods: [POST, PUT, PATCH, DELETE]
+    paths:
+      - '^/bff(/.*)?$'
+  - name: auth-service-jwks-authenticated-read
+    upstream: auth
+    rateLimit: authenticated_read
+    websocket: false
+    methods: [GET]
+    paths:
+      - '^/\.well-known/jwks\.json$'
+  - name: auth-service-public-public-auth
+    upstream: auth
+    rateLimit: public_auth
+    websocket: false
+    methods: [POST]
+    paths:
+      - '^/api/auth/login$'
+      - '^/api/auth/register$'
+      - '^/api/auth/social-login$'
+      - '^/api/auth/refresh-token$'
+      - '^/api/auth/logout$'
+      - '^/api/auth/forgot-password$'
+      - '^/api/auth/reset-password$'
+      - '^/api/auth/email-verification/request$'
+      - '^/api/auth/email-verification/confirm$'
+  - name: auth-service-registration-status-public-auth
+    upstream: auth
+    rateLimit: public_auth
+    websocket: false
+    methods: [GET]
+    paths:
+      - '^/api/auth/registrations/([^/]+)$'
+  - name: auth-service-firebase-chat-token-mutation
+    upstream: auth
+    rateLimit: mutation
+    websocket: false
+    methods: [POST]
+    paths:
+      - '^/api/auth/firebase/chat-token$'
+  - name: search-service-public-public-catalog
+    upstream: search
+    rateLimit: public_catalog
+    websocket: false
+    methods: [GET]
+    paths:
+      - '^/api/search/restaurants$'
+      - '^/api/search/dishes$'
+  - name: user-service-registration-user-registration
+    upstream: user
+    rateLimit: user_registration
+    websocket: false
+    methods: [POST]
+    paths:
+      - '^/api/users/registrations$'
+  - name: auth-service-admin-mutation
+    upstream: auth
+    rateLimit: mutation
+    websocket: false
+    methods: [POST]
+    paths:
+      - '^/api/auth/admin/accounts/([0-9]+)/block$'
+      - '^/api/auth/admin/accounts/([0-9]+)/unblock$'
+  - name: auth-service-account-admin-authenticated-read
+    upstream: auth
+    rateLimit: authenticated_read
+    websocket: false
+    methods: [GET]
+    paths:
+      - '^/api/auth/accounts/([0-9]+)$'
+  - name: auth-service-protected-authenticated-read
+    upstream: auth
+    rateLimit: authenticated_read
+    websocket: false
+    methods: [GET]
+    paths:
+      - '^/api/auth/sessions$'
+  - name: auth-service-session-revoke-mutation
+    upstream: auth
+    rateLimit: mutation
+    websocket: false
+    methods: [DELETE]
+    paths:
+      - '^/api/auth/sessions/([^/]+)$'
+  - name: user-service-current-authenticated-read
+    upstream: user
+    rateLimit: authenticated_read
+    websocket: false
+    methods: [GET]
+    paths:
+      - '^/api/users$'
+  - name: user-service-current-mutation
+    upstream: user
+    rateLimit: mutation
+    websocket: false
+    methods: [PUT]
+    paths:
+      - '^/api/users$'
+  - name: user-service-admin-read-authenticated-read
+    upstream: user
+    rateLimit: authenticated_read
+    websocket: false
+    methods: [GET]
+    paths:
+      - '^/api/users/admin/statistics$'
+      - '^/api/users/admin/all$'
+  - name: user-address-service-read-authenticated-read
+    upstream: user
+    rateLimit: authenticated_read
+    websocket: false
+    methods: [GET]
+    paths:
+      - '^/api/addresses/users/([0-9]+)/addresses$'
+      - '^/api/addresses/([0-9]+)$'
+  - name: user-address-service-create-mutation
+    upstream: user
+    rateLimit: mutation
+    websocket: false
+    methods: [POST]
+    paths:
+      - '^/api/addresses/users/([0-9]+)/addresses$'
+  - name: user-address-service-update-mutation
+    upstream: user
+    rateLimit: mutation
+    websocket: false
+    methods: [PUT]
+    paths:
+      - '^/api/addresses/([0-9]+)$'
+  - name: user-address-service-default-mutation
+    upstream: user
+    rateLimit: mutation
+    websocket: false
+    methods: [PATCH]
+    paths:
+      - '^/api/addresses/([0-9]+)/default$'
+  - name: user-address-service-delete-mutation
+    upstream: user
+    rateLimit: mutation
+    websocket: false
+    methods: [DELETE]
+    paths:
+      - '^/api/addresses/([0-9]+)$'
+  - name: restaurant-serviceability-zones-authenticated-read
+    upstream: restaurant
+    rateLimit: authenticated_read
+    websocket: false
+    methods: [GET]
+    paths:
+      - '^/api/restaurants/([0-9]+)/serviceability-zones$'
+      - '^/api/restaurants/([0-9]+)/serviceability-zones/([0-9]+)$'
+  - name: restaurant-serviceability-zones-mutation
+    upstream: restaurant
+    rateLimit: mutation
+    websocket: false
+    methods: [POST, PUT, DELETE]
+    paths:
+      - '^/api/restaurants/([0-9]+)/serviceability-zones$'
+      - '^/api/restaurants/([0-9]+)/serviceability-zones/([0-9]+)$'
+  - name: restaurant-catalog-public-public-catalog
+    upstream: restaurant
+    rateLimit: public_catalog
+    websocket: false
+    methods: [GET]
+    paths:
+      - '^/api/restaurants$'
+      - '^/api/restaurants/page$'
+      - '^/api/restaurants/search$'
+      - '^/api/restaurants/([0-9]+)$'
+      - '^/api/restaurants/([0-9]+)/ratings$'
+      - '^/api/restaurants/([0-9]+)/ratings/page$'
+  - name: restaurant-menu-public-public-catalog
+    upstream: restaurant
+    rateLimit: public_catalog
+    websocket: false
+    methods: [GET]
+    paths:
+      - '^/api/menu-items/restaurant/([0-9]+)$'
+      - '^/api/menu-items/restaurant/([0-9]+)/page$'
+      - '^/api/menu-items/restaurant/([0-9]+)/available$'
+      - '^/api/menu-items/restaurant/([0-9]+)/available/page$'
+  - name: restaurant-admin-ratings-read-authenticated-read
+    upstream: restaurant
+    rateLimit: authenticated_read
+    websocket: false
+    methods: [GET]
+    paths:
+      - '^/api/restaurants/admin/ratings$'
+      - '^/api/restaurants/admin/ratings/page$'
+  - name: restaurant-admin-ratings-update-mutation
+    upstream: restaurant
+    rateLimit: mutation
+    websocket: false
+    methods: [PUT]
+    paths:
+      - '^/api/restaurants/admin/ratings/([0-9]+)/status$'
+  - name: restaurant-order-actions-mutation
+    upstream: restaurant
+    rateLimit: mutation
+    websocket: false
+    methods: [POST]
+    paths:
+      - '^/api/restaurants/orders/([0-9]+)/confirm$'
+      - '^/api/restaurants/orders/([0-9]+)/reject$'
+  - name: restaurant-owner-self-authenticated-read
+    upstream: restaurant
+    rateLimit: authenticated_read
+    websocket: false
+    methods: [GET]
+    paths:
+      - '^/api/restaurants/my-restaurants$'
+  - name: restaurant-customer-ratings-self-authenticated-read
+    upstream: restaurant
+    rateLimit: authenticated_read
+    websocket: false
+    methods: [GET]
+    paths:
+      - '^/api/restaurants/me/ratings$'
+  - name: restaurant-rating-submit-mutation
+    upstream: restaurant
+    rateLimit: mutation
+    websocket: false
+    methods: [POST]
+    paths:
+      - '^/api/restaurants/([0-9]+)/ratings$'
+  - name: restaurant-create-mutation
+    upstream: restaurant
+    rateLimit: mutation
+    websocket: false
+    methods: [POST]
+    paths:
+      - '^/api/restaurants$'
+  - name: restaurant-update-delete-mutation
+    upstream: restaurant
+    rateLimit: mutation
+    websocket: false
+    methods: [PUT, DELETE]
+    paths:
+      - '^/api/restaurants/([0-9]+)$'
+  - name: restaurant-menu-self-authenticated-read
+    upstream: restaurant
+    rateLimit: authenticated_read
+    websocket: false
+    methods: [GET]
+    paths:
+      - '^/api/menu-items/my-menu-items$'
+      - '^/api/menu-items/my-menu-items/page$'
+  - name: restaurant-menu-create-mutation
+    upstream: restaurant
+    rateLimit: mutation
+    websocket: false
+    methods: [POST]
+    paths:
+      - '^/api/menu-items$'
+  - name: restaurant-menu-update-delete-mutation
+    upstream: restaurant
+    rateLimit: mutation
+    websocket: false
+    methods: [PUT, DELETE]
+    paths:
+      - '^/api/menu-items/([0-9]+)$'
+  - name: restaurant-menu-inventory-authenticated-read
+    upstream: restaurant
+    rateLimit: authenticated_read
+    websocket: false
+    methods: [GET]
+    paths:
+      - '^/api/menu-items/([0-9]+)/inventory$'
+  - name: restaurant-menu-inventory-mutation
+    upstream: restaurant
+    rateLimit: mutation
+    websocket: false
+    methods: [PUT]
+    paths:
+      - '^/api/menu-items/([0-9]+)/inventory$'
+  - name: order-service-admin-queries-authenticated-read
+    upstream: order
+    rateLimit: authenticated_read
+    websocket: false
+    methods: [GET]
+    paths:
+      - '^/api/orders/all$'
+      - '^/api/orders/status/([^/]+)$'
+  - name: order-service-create-mutation
+    upstream: order
+    rateLimit: mutation
+    websocket: false
+    methods: [POST]
+    paths:
+      - '^/api/orders$'
+      - '^/api/orders/checkout-preview$'
+  - name: order-service-read-authenticated-read
+    upstream: order
+    rateLimit: authenticated_read
+    websocket: false
+    methods: [GET]
+    paths:
+      - '^/api/orders/([0-9]+)$'
+  - name: order-service-customer-self-authenticated-read
+    upstream: order
+    rateLimit: authenticated_read
+    websocket: false
+    methods: [GET]
+    paths:
+      - '^/api/orders/my-orders$'
+  - name: order-service-restaurant-self-authenticated-read
+    upstream: order
+    rateLimit: authenticated_read
+    websocket: false
+    methods: [GET]
+    paths:
+      - '^/api/orders/my-restaurant-orders$'
+  - name: order-service-cancel-mutation
+    upstream: order
+    rateLimit: mutation
+    websocket: false
+    methods: [PUT]
+    paths:
+      - '^/api/orders/([0-9]+)/cancel$'
+  - name: delivery-service-shipper-actions-mutation
+    upstream: delivery
+    rateLimit: mutation
+    websocket: false
+    methods: [POST]
+    paths:
+      - '^/api/deliveries/accept$'
+      - '^/api/deliveries/cancel-assignment$'
+  - name: delivery-service-batch-actions-mutation
+    upstream: delivery
+    rateLimit: mutation
+    websocket: false
+    methods: [POST]
+    paths:
+      - '^/api/deliveries/batch/accept$'
+      - '^/api/deliveries/batch/reject$'
+  - name: delivery-service-status-mutation
+    upstream: delivery
+    rateLimit: mutation
+    websocket: false
+    methods: [PUT]
+    paths:
+      - '^/api/deliveries/([0-9]+)/status$'
+  - name: delivery-service-pod-actions-mutation
+    upstream: delivery
+    rateLimit: mutation
+    websocket: false
+    methods: [POST]
+    paths:
+      - '^/api/deliveries/([0-9]+)/proofs/upload-intent$'
+      - '^/api/deliveries/([0-9]+)/proofs/([0-9a-fA-F-]+)/confirm$'
+  - name: delivery-service-pod-read-authenticated-read
+    upstream: delivery
+    rateLimit: authenticated_read
+    websocket: false
+    methods: [GET]
+    paths:
+      - '^/api/deliveries/([0-9]+)/proofs/([0-9a-fA-F-]+)/access$'
+  - name: delivery-service-exception-actions-mutation
+    upstream: delivery
+    rateLimit: mutation
+    websocket: false
+    methods: [POST]
+    paths:
+      - '^/api/deliveries/([0-9]+)/exceptions/failed$'
+      - '^/api/deliveries/([0-9]+)/exceptions/retry$'
+      - '^/api/deliveries/([0-9]+)/exceptions/return/confirm$'
+  - name: delivery-service-exception-read-authenticated-read
+    upstream: delivery
+    rateLimit: authenticated_read
+    websocket: false
+    methods: [GET]
+    paths:
+      - '^/api/deliveries/([0-9]+)/exception$'
+  - name: delivery-service-read-authenticated-read
+    upstream: delivery
+    rateLimit: authenticated_read
+    websocket: false
+    methods: [GET]
+    paths:
+      - '^/api/deliveries/([0-9]+)$'
+      - '^/api/deliveries/order/([0-9]+)$'
+  - name: delivery-service-current-offer-authenticated-read
+    upstream: delivery
+    rateLimit: authenticated_read
+    websocket: false
+    methods: [GET]
+    paths:
+      - '^/api/deliveries/offers/current$'
+  - name: delivery-service-current-batch-offer-authenticated-read
+    upstream: delivery
+    rateLimit: authenticated_read
+    websocket: false
+    methods: [GET]
+    paths:
+      - '^/api/deliveries/offers/current-batch$'
+  - name: delivery-service-batch-snapshot-authenticated-read
+    upstream: delivery
+    rateLimit: authenticated_read
+    websocket: false
+    methods: [GET]
+    paths:
+      - '^/api/deliveries/batches/([^/]+)$'
+  - name: delivery-service-shipper-read-authenticated-read
+    upstream: delivery
+    rateLimit: authenticated_read
+    websocket: false
+    methods: [GET]
+    paths:
+      - '^/api/deliveries/shipper/([0-9]+)$'
+      - '^/api/deliveries/shipper/([0-9]+)/active$'
+  - name: shipper-service-self-create-mutation
+    upstream: shipper
+    rateLimit: mutation
+    websocket: false
+    methods: [POST]
+    paths:
+      - '^/api/shippers$'
+  - name: shipper-service-self-authenticated-read
+    upstream: shipper
+    rateLimit: authenticated_read
+    websocket: false
+    methods: [GET]
+    paths:
+      - '^/api/shippers/my-profile$'
+      - '^/api/shippers/me/ratings$'
+  - name: shipper-service-self-update-mutation
+    upstream: shipper
+    rateLimit: mutation
+    websocket: false
+    methods: [PUT]
+    paths:
+      - '^/api/shippers$'
+  - name: shipper-service-online-mutation
+    upstream: shipper
+    rateLimit: mutation
+    websocket: false
+    methods: [PATCH]
+    paths:
+      - '^/api/shippers/online-status$'
+  - name: shipper-service-admin-authenticated-read
+    upstream: shipper
+    rateLimit: authenticated_read
+    websocket: false
+    methods: [GET]
+    paths:
+      - '^/api/shippers$'
+      - '^/api/shippers/online$'
+      - '^/api/shippers/([0-9]+)$'
+  - name: notification-service-read-authenticated-read
+    upstream: notification
+    rateLimit: authenticated_read
+    websocket: false
+    methods: [GET]
+    paths:
+      - '^/api/notifications/user/([0-9]+)$'
+      - '^/api/notifications/unread$'
+      - '^/api/notifications/unread-count$'
+      - '^/api/notifications/preferences$'
+      - '^/api/notifications/([0-9]+)$'
+  - name: notification-service-update-mutation
+    upstream: notification
+    rateLimit: mutation
+    websocket: false
+    methods: [PUT]
+    paths:
+      - '^/api/notifications/([0-9]+)/read$'
+      - '^/api/notifications/mark-all-read$'
+      - '^/api/notifications/preferences/marketing$'
+  - name: notification-service-delete-mutation
+    upstream: notification
+    rateLimit: mutation
+    websocket: false
+    methods: [DELETE]
+    paths:
+      - '^/api/notifications/([0-9]+)$'
+  - name: firebase-service-mutation
+    upstream: notification
+    rateLimit: mutation
+    websocket: false
+    methods: [POST]
+    paths:
+      - '^/api/firebase/register-token$'
+      - '^/api/firebase/unregister-token$'
+  - name: tracking-service-shipper-mutation
+    upstream: tracking
+    rateLimit: mutation
+    websocket: false
+    methods: [POST]
+    paths:
+      - '^/api/tracking/shipper-locations/update$'
+      - '^/api/tracking/shipper-locations/offline$'
+  - name: tracking-service-ws-websocket-connection
+    upstream: tracking
+    rateLimit: websocket_connection
+    websocket: true
+    methods: [GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS]
+    paths:
+      - '^/ws/shipper-locations$'
+  - name: settlement-service-customer-refund-read-authenticated-read
+    upstream: settlement
+    rateLimit: authenticated_read
+    websocket: false
+    methods: [GET]
+    paths:
+      - '^/api/settlement/refunds/my$'
+  - name: settlement-service-admin-read-authenticated-read
+    upstream: settlement
+    rateLimit: authenticated_read
+    websocket: false
+    methods: [GET]
+    paths:
+      - '^/api/settlement/admin/balances$'
+      - '^/api/settlement/admin/transactions$'
+      - '^/api/settlement/admin/transactions/pending$'
+      - '^/api/settlement/admin/revenue$'
+      - '^/api/settlement/admin/refunds$'
+      - '^/api/settlement/admin/refunds/([0-9a-fA-F-]+)$'
+  - name: promotion-service-user-collect-mutation
+    upstream: promotion
+    rateLimit: mutation
+    websocket: false
+    methods: [POST]
+    paths:
+      - '^/api/promotions/collect/([^/]+)$'
+  - name: promotion-service-user-vouchers-authenticated-read
+    upstream: promotion
+    rateLimit: authenticated_read
+    websocket: false
+    methods: [GET]
+    paths:
+      - '^/api/promotions/my-vouchers$'
+  - name: promotion-service-user-capability-authenticated-read
+    upstream: promotion
+    rateLimit: authenticated_read
+    websocket: false
+    methods: [GET]
+    paths:
+      - '^/api/promotions/capability$'
+  - name: promotion-service-merchant-list-authenticated-read
+    upstream: promotion
+    rateLimit: authenticated_read
+    websocket: false
+    methods: [GET]
+    paths:
+      - '^/api/promotions/merchant$'
+  - name: promotion-service-shop-create-mutation
+    upstream: promotion
+    rateLimit: mutation
+    websocket: false
+    methods: [POST]
+    paths:
+      - '^/api/promotions/shop$'
+  - name: promotion-service-shop-list-authenticated-read
+    upstream: promotion
+    rateLimit: authenticated_read
+    websocket: false
+    methods: [GET]
+    paths:
+      - '^/api/promotions/shop$'
+  - name: promotion-service-admin-create-mutation
+    upstream: promotion
+    rateLimit: mutation
+    websocket: false
+    methods: [POST]
+    paths:
+      - '^/api/promotions/platform$'
+  - name: promotion-service-admin-list-authenticated-read
+    upstream: promotion
+    rateLimit: authenticated_read
+    websocket: false
+    methods: [GET]
+    paths:
+      - '^/api/promotions/admin$'
+      - '^/api/promotions/admin/page$'
+  - name: promotion-service-admin-shop-review-read-authenticated-read
+    upstream: promotion
+    rateLimit: authenticated_read
+    websocket: false
+    methods: [GET]
+    paths:
+      - '^/api/promotions/admin/pending-shop$'
+  - name: promotion-service-admin-shop-review-write-mutation
+    upstream: promotion
+    rateLimit: mutation
+    websocket: false
+    methods: [POST]
+    paths:
+      - '^/api/promotions/admin/([0-9]+)/approve$'
+      - '^/api/promotions/admin/([0-9]+)/reject$'
+      - '^/api/promotions/admin/([0-9]+)/pause$'
+      - '^/api/promotions/admin/([0-9]+)/resume$'
+  - name: promotion-service-admin-delete-mutation
+    upstream: promotion
+    rateLimit: mutation
+    websocket: false
+    methods: [DELETE]
+    paths:
+      - '^/api/promotions/([0-9]+)$'
+  - name: flashsale-public-authenticated-read
+    upstream: flashsale
+    rateLimit: authenticated_read
+    websocket: false
+    methods: [GET]
+    paths:
+      - '^/api/flashsales/public/campaigns$'
+      - '^/api/flashsales/public/campaigns/([0-9]+)/items$'
+  - name: flashsale-admin-read-authenticated-read
+    upstream: flashsale
+    rateLimit: authenticated_read
+    websocket: false
+    methods: [GET]
+    paths:
+      - '^/api/flashsales/admin/campaigns$'
+      - '^/api/flashsales/admin/campaigns/page$'
+      - '^/api/flashsales/admin/campaigns/([0-9]+)/items$'
+      - '^/api/flashsales/admin/campaigns/([0-9]+)/items/page$'
+  - name: flashsale-admin-create-mutation
+    upstream: flashsale
+    rateLimit: mutation
+    websocket: false
+    methods: [POST]
+    paths:
+      - '^/api/flashsales/admin/campaigns$'
+  - name: flashsale-admin-update-mutation
+    upstream: flashsale
+    rateLimit: mutation
+    websocket: false
+    methods: [PUT]
+    paths:
+      - '^/api/flashsales/admin/campaigns/([0-9]+)/status$'
+      - '^/api/flashsales/admin/items/([0-9]+)/approve$'
+  - name: analytics-service-admin-dashboard-authenticated-read
+    upstream: analytics
+    rateLimit: authenticated_read
+    websocket: false
+    methods: [GET]
+    paths:
+      - '^/api/analytics/dashboard/admin$'
