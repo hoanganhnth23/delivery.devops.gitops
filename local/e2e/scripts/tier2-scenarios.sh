@@ -77,12 +77,22 @@ s07() { # the only candidate rejects -> no one left -> SHIPPER_NOT_FOUND everywh
   new_order; confirm "$ORDER"
   wait_offer "$ORDER" 90 0
   respond 0 "$ORDER" REJECT; expect_ok "shipper#0 rejects"
+  local first="$ORDER"
+  # While the first order keeps searching, a new order must still be matched
+  # promptly (regression: match held the Kafka record and stalled every order).
+  new_order; confirm "$ORDER"
+  wait_offer "$ORDER" 60 0
+  order_status "$first"; log "order $first is $STATUS while order $ORDER got its offer"
+  respond 0 "$ORDER" REJECT; expect_ok "shipper#0 rejects the second order"
   # Rematch budget is fixed in dispatch (5 tries, 15 s x1.5 ~ 200 s) plus match
   # scheduling lag; wait it out so the search does not leak into later scenarios.
-  wait_status "$ORDER" SHIPPER_NOT_FOUND 420
-  local d; d="$(delivery_status "$ORDER")"
-  [ "$d" = SHIPPER_NOT_FOUND ] || fail "delivery status is $d, customer sees SHIPPER_NOT_FOUND"
-  log "customer + delivery both SHIPPER_NOT_FOUND; dispatch case=$(case_status "$ORDER")"
+  local o d
+  for o in "$first" "$ORDER"; do
+    wait_status "$o" SHIPPER_NOT_FOUND 420
+    d="$(delivery_status "$o")"
+    [ "$d" = SHIPPER_NOT_FOUND ] || fail "order $o: delivery status is $d, customer sees SHIPPER_NOT_FOUND"
+  done
+  log "both orders searched in parallel; customer + delivery SHIPPER_NOT_FOUND; dispatch case=$(case_status "$first")"
 }
 
 s05_s09() { # reject -> next shipper; rejecter is never re-offered and cannot accept late
