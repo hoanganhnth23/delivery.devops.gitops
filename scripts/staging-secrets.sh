@@ -27,8 +27,15 @@ kubectl get ns "$NS" >/dev/null 2>&1 || kubectl create ns "$NS" >/dev/null
 if should_create delivery-runtime-secrets; then
   kubectl -n "$NS" create secret generic delivery-runtime-secrets \
     --from-literal=internal-secret="$(openssl rand -hex 32)" \
-    --from-literal=registration-canary-hash-key="$(openssl rand -hex 32)" >/dev/null
+    --from-literal=registration-canary-hash-key="$(openssl rand -hex 32)" \
+    --from-literal=web-bff.encryption-key-base64="$(openssl rand -base64 32)" >/dev/null
   echo "+ delivery-runtime-secrets"
+fi
+# Bổ sung key mới vào secret đã tồn tại (không đổi các key cũ).
+if [[ -z "$(kubectl -n "$NS" get secret delivery-runtime-secrets -o jsonpath='{.data.web-bff\.encryption-key-base64}')" ]]; then
+  kubectl -n "$NS" patch secret delivery-runtime-secrets --type merge \
+    -p "{\"stringData\":{\"web-bff.encryption-key-base64\":\"$(openssl rand -base64 32)\"}}" >/dev/null
+  echo "+ delivery-runtime-secrets/web-bff.encryption-key-base64"
 fi
 
 # 2) Cặp khoá RSA ký JWT cho auth-service (private PKCS8 PEM, public X509 PEM).
