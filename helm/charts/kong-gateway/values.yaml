@@ -39,6 +39,8 @@ plugins:
     enabled: true
     minute: 300
     policy: local # Can be switched to redis on staging/prod
+  prometheus:
+    enabled: false
   correlationId:
     enabled: true
     headerName: "X-Request-ID"
@@ -46,6 +48,9 @@ plugins:
 ingress:
   className: kong
   host: ""
+  # Đặt {name, port} để route mọi path vào một upstream (vd. api-gateway) thay cho
+  # danh sách route theo service bên dưới.
+  upstream: {}
   tls:
     enabled: false
     secretName: ""

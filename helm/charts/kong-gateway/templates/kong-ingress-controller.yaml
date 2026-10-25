@@ -1,3 +1,4 @@
+{{- if .Values.controller.enabled }}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -158,3 +159,4 @@ spec:
             limits:
               cpu: 500m
               memory: 256Mi
+{{- end }}

@@ -1,24 +1,21 @@
-# Staging environment overrides for Kong Gateway
-replicaCount: 1
-
-resources:
-  requests:
-    cpu: 50m
-    memory: 128Mi
-  limits:
-    cpu: 500m
-    memory: 256Mi
-
-service:
-  type: LoadBalancer
-  annotations:
-    cloud.google.com/load-balancer-type: "External"
+# Staging: proxy + ingress controller do chart Kong chính thức cài
+# (argocd/applications/kong-staging.yaml). Chart này chỉ còn plugin + Ingress.
+controller:
+  enabled: false
 
 plugins:
+  # Trần rất cao cho staging: k6 bắn từ 1 IP, trần thật (500/phút) sẽ trả 429 và làm
+  # sai kết quả test tải. Vẫn bật để đo đúng chi phí plugin trên mỗi request.
   rateLimiting:
-    minute: 500
+    enabled: true
+    minute: 1000000
     policy: local
+  prometheus:
+    enabled: true
 
 ingress:
   className: kong
-  host: "" # In staging, access directly via external IP or staging domain
+  host: "" # Gọi thẳng IP tĩnh 34.87.64.137 cho tới khi có domain staging
+  upstream:
+    name: api-gateway
+    port: 8079
