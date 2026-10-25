@@ -28,6 +28,7 @@ spec:
       serviceAccountName: {{ .Values.serviceAccount.name | default (include "microservice.fullname" .) }}
       {{- end }}
       automountServiceAccountToken: {{ .Values.serviceAccount.automountToken }}
+      enableServiceLinks: {{ .Values.enableServiceLinks }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:

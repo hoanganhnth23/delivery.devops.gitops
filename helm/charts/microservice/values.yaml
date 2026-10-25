@@ -20,6 +20,10 @@ serviceAccount:
 
 podAnnotations: {}
 
+# Tắt biến môi trường kiểu Docker link (<SVC>_PORT=tcp://ip:port) Kubernetes tự gán
+# cho mọi Service cùng namespace: Service "redis" sinh REDIS_PORT đè cấu hình app.
+enableServiceLinks: false
+
 # Actuator (health + prometheus) chạy trên port quản trị nội bộ, không đi qua Service http.
 management:
   enabled: true
@@ -73,14 +77,15 @@ autoscaling:
   targetMemoryUtilizationPercentage: 80
 
 # Java khởi động chậm khi nhiều service cùng lên trên node nhỏ: startupProbe cho tối đa
-# 5 phút; liveness/readiness chỉ bắt đầu sau khi startup thành công.
+# 10 phút; liveness/readiness chỉ bắt đầu sau khi startup thành công.
 startupProbe:
   httpGet:
     path: /actuator/health/liveness
     port: management
   periodSeconds: 10
   timeoutSeconds: 3
-  failureThreshold: 30
+  # 10 phút: 19 JVM khởi động cùng lúc trên node 2 vCPU đo được ~290s/service.
+  failureThreshold: 60
 
 livenessProbe:
   httpGet:
