@@ -24,10 +24,9 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# Test-only retry timers so "no shipper found" settles in ~30 s. The matching
-# deadline keeps its production 5 minutes: it is absolute from the first search,
-# so it must outlast the fixed 180 s offer window or a rematch after an offer
-# timeout gives up without searching.
+# Test-only retry timers so "no shipper found" settles in ~30 s. The offer window
+# (30 s) and the matching deadline (15 min, absolute from the first search) keep
+# their production defaults.
 export E2E_MATCH_RETRY_ATTEMPTS="${E2E_MATCH_RETRY_ATTEMPTS:-3}"
 export E2E_MATCH_DELAY_SECONDS="${E2E_MATCH_DELAY_SECONDS:-5}"
 export E2E_MATCH_MAX_DELAY_SECONDS="${E2E_MATCH_MAX_DELAY_SECONDS:-10}"
