@@ -13,6 +13,10 @@ fullnameOverride: ""
 serviceAccount:
   create: false
   name: ""
+  # Service không gọi Kubernetes API. Tắt token còn tránh xung đột mount: secretMounts
+  # gắn vào /run/secrets (read-only) nên kubelet không tạo được
+  # /var/run/secrets/kubernetes.io bên trong (/var/run -> /run).
+  automountToken: false
 
 podAnnotations: {}
 
