@@ -70,7 +70,7 @@ auth-service:
   replicaCount: 1
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/auth-service
-    tag: "latest"
+    tag: "staging-b67b36f1d10ff6a2e6a066fa710aea94545c9f44"
   service:
     port: 8081
     targetPort: 8081
@@ -137,7 +137,7 @@ restaurant-service:
   replicaCount: 1
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/restaurant-service
-    tag: "latest"
+    tag: "staging-28abe8bf08d47f0eb810e08c969e0214badfc9fc"
   service:
     port: 8083
     targetPort: 8083
@@ -165,7 +165,7 @@ order-service:
   replicaCount: 1
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/order-service
-    tag: "latest"
+    tag: "staging-e96e6d93b3a5a9b4698c87e99a70bdf243e74e7d"
   service:
     port: 8084
     targetPort: 8084
@@ -277,7 +277,7 @@ notification-service:
   replicaCount: 1
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/notification-service
-    tag: "latest"
+    tag: "staging-5c5e50002371a8e0905f8562c87a74dc764fca0a"
   service:
     port: 8091
     targetPort: 8091
@@ -305,7 +305,7 @@ match-service:
   replicaCount: 1
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/match-service
-    tag: "latest"
+    tag: "staging-e5f4b442b55e453168018798792b790369d850b0"
   service:
     port: 8092
     targetPort: 8092
@@ -361,7 +361,7 @@ tracking-service:
   replicaCount: 1
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/tracking-service
-    tag: "latest"
+    tag: "staging-6661d10296fdeec57f8fb1b0789c55b4fa66e62d"
   service:
     port: 8093
     targetPort: 8093
@@ -434,7 +434,7 @@ dispatch-service:
   replicaCount: 1
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/dispatch-service
-    tag: "latest"
+    tag: "staging-78d47a3023de69565d1d9e930d545a6f23016c8b"
   service:
     port: 8095
     targetPort: 8095
@@ -535,7 +535,7 @@ web-bff-service:
   replicaCount: 1
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/web-bff-service
-    tag: "latest"
+    tag: "staging-e1fdd7d91b2d2cdc31ffccaa3fbbb2dd84f021af"
   service:
     port: 8091
     targetPort: 8091
