@@ -66,6 +66,9 @@ api-gateway:
   env:
     - name: SPRING_PROFILES_ACTIVE
       value: "staging"
+    # Rate-limit theo IP (catalog 120/phút) chặn k6 bắn từ 1 IP; staging tắt để đo đúng.
+    - name: RATE_LIMIT_ENABLED
+      value: "false"
 
 auth-service:
   fullnameOverride: auth-service
