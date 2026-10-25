@@ -4,8 +4,9 @@
 # Each scenario places its own order, controls which seeded shippers are online,
 # and leaves every order it created in a terminal state. A failing scenario is
 # reported and the next one still runs. S12/S13 are covered by the golden flow
-# (verify-mvp-cod-flow.sh); S01/S02 need flags that staging keeps off and run in
-# tier2-capabilities.sh.
+# (verify-mvp-cod-flow.sh); S01/S02/S16/S18 need flags that staging keeps off and
+# run in tier2-capabilities.sh. S15 shipper cancels after accepting, S17 customer
+# cancels after a shipper accepted, S19 admin blocks an account.
 #
 #   TIER2_ONLY        space-separated subset, e.g. "S05 S08"
 #   TIER2_SKIP_SLOW   true to skip S06/S14 (they wait out real offer windows)
@@ -148,8 +149,101 @@ s14() { # two shippers ignore the offer in turn -> the third still gets it (Uber
   finish "$third" "$delivery" "$ORDER"
 }
 
+s15() { # shipper cancels after accepting -> back to searching, the canceller is never re-offered
+  only_online 0 1
+  new_order; confirm "$ORDER"
+  wait_offer "$ORDER" 90 0 1; local first="$OFFERED" second=$((1 - OFFERED))
+  respond "$first" "$ORDER" ACCEPT; expect_ok "shipper#$first accepts"
+  wait_status "$ORDER" ASSIGNED 60
+  req POST /api/deliveries/cancel-assignment "${SHIP_TOKEN[$second]}" "{\"orderId\":$ORDER,\"reason\":\"e2e not mine\"}"
+  expect_denied "shipper#$second cancelling an order assigned to shipper#$first"
+  req POST /api/deliveries/cancel-assignment "${SHIP_TOKEN[$first]}" "{\"orderId\":$ORDER,\"reason\":\"Xe hỏng\"}"
+  expect_ok "shipper#$first cancels the accepted order"
+  wait_offer "$ORDER" 120 "$second"; local delivery="$OFFER_DELIVERY"
+  offer_of "$first"; [ "$OFFER_ORDER" = "$ORDER" ] && fail "the cancelling shipper#$first was offered the order again"
+  respond "$first" "$ORDER" ACCEPT; expect_denied "the cancelling shipper#$first accepting again"
+  respond "$second" "$ORDER" ACCEPT; expect_ok "shipper#$second accepts"
+  wait_status "$ORDER" ASSIGNED 60
+  [ "$(case_shipper "$ORDER")" = "${SHIP_ID[$second]}" ] || fail "dispatch assigned $(case_shipper "$ORDER"), expected ${SHIP_ID[$second]}"
+  req PUT "/api/deliveries/$delivery/status?status=PICKED_UP" "${SHIP_TOKEN[$second]}"; expect_ok "shipper#$second picks up"
+  req POST /api/deliveries/cancel-assignment "${SHIP_TOKEN[$second]}" "{\"orderId\":$ORDER,\"reason\":\"too late\"}"
+  expect_denied "cancelling after pick-up"
+  local s; for s in DELIVERING DELIVERED; do
+    req PUT "/api/deliveries/$delivery/status?status=$s" "${SHIP_TOKEN[$second]}"; expect_ok "shipper#$second marks $s"
+  done
+  wait_status "$ORDER" DELIVERED 90
+  log "rematched to shipper#$second after shipper#$first cancelled; cancel after pick-up refused"
+}
+
+s17() { # customer cancels after a shipper accepted -> delivery cancelled, shipper free again; not after pick-up
+  only_online 0
+  new_order; local first="$ORDER"; confirm "$first"
+  wait_offer "$first" 90 0; local old_delivery="$OFFER_DELIVERY"
+  respond 0 "$first" ACCEPT; expect_ok "shipper#0 accepts"
+  wait_status "$first" ASSIGNED 60
+  cancel "$first"; expect_ok "customer cancels an ASSIGNED order"
+  wait_status "$first" CANCELLED 60
+  local deadline=$((SECONDS + 60)) d
+  while (( SECONDS < deadline )); do d="$(delivery_status "$first")"; [ "$d" = CANCELLED ] && break; sleep 2; done
+  [ "$d" = CANCELLED ] || fail "delivery of cancelled order is $d"
+  req PUT "/api/deliveries/$old_delivery/status?status=PICKED_UP" "${SHIP_TOKEN[0]}"
+  expect_denied "shipper picking up a cancelled delivery"
+  log "order $first cancelled while ASSIGNED; delivery CANCELLED; pick-up refused (HTTP $CODE)"
+
+  new_order; local second="$ORDER"; confirm "$second"
+  wait_offer "$second" 90 0; local delivery="$OFFER_DELIVERY"   # freed shipper gets the next order
+  respond 0 "$second" ACCEPT; expect_ok "freed shipper#0 accepts the next order"
+  wait_status "$second" ASSIGNED 60
+  req PUT "/api/deliveries/$delivery/status?status=PICKED_UP" "${SHIP_TOKEN[0]}"; expect_ok "shipper#0 picks up"
+  # Order judges the cancel on its own copy of the status, so let PICKED_UP reach it
+  # first. (Cancelling inside that gap still succeeds: known race, see the plan.)
+  wait_status "$second" PICKED_UP 30
+  cancel "$second"; expect_denied "customer cancelling after pick-up"
+  log "after pick-up the customer cancel is refused (HTTP $CODE)"
+  local s; for s in DELIVERING DELIVERED; do
+    req PUT "/api/deliveries/$delivery/status?status=$s" "${SHIP_TOKEN[0]}"; expect_ok "shipper#0 marks $s"
+  done
+  wait_status "$second" DELIVERED 90
+}
+
+s19() { # admin blocks a customer -> login and refresh refused; unblock lets them back in
+  local refresh account
+  login_raw() { curl -sS -X POST "$BASE/api/auth/login" -H 'Content-Type: application/json' -w $'\n%{http_code}' \
+    -d "$(jq -nc --arg e "$OUTSIDER_EMAIL" --arg p "${PASS:-Password123!}" \
+      '{email:$e,password:$p,deviceId:"tier2-block",deviceName:"E2E block",deviceType:"WEB"}')"; }
+  local out; out="$(login_raw)"; [ "${out##*$'\n'}" = 200 ] || fail "outsider cannot log in before the block: ${out:0:200}"
+  refresh="$(jq -r '.data.refreshToken // .refreshToken // empty' <<<"${out%$'\n'*}")"
+  [ -n "$refresh" ] || fail "login returned no refresh token"
+  account="$(sql auth_db "SELECT id FROM auth_account WHERE email = '$OUTSIDER_EMAIL';")"
+  [[ "$account" =~ ^[0-9]+$ ]] || fail "no auth account for $OUTSIDER_EMAIL"
+
+  req POST "/api/auth/admin/accounts/$account/block" "$CUSTOMER" '{"reason":"e2e"}'
+  expect_denied "a customer blocking an account"
+  admin_token
+  req POST "/api/auth/admin/accounts/$account/block" "$ADMIN" '{"reason":"E2E: spam đơn ảo"}'; expect_ok "admin blocks account $account"
+
+  out="$(login_raw)"; [[ "${out##*$'\n'}" == 2* ]] && fail "blocked account could still log in"
+  log "blocked: login refused (HTTP ${out##*$'\n'})"
+  out="$(curl -sS -X POST "$BASE/api/auth/refresh-token" -H 'Content-Type: application/json' -w $'\n%{http_code}' \
+    -d "$(jq -nc --arg r "$refresh" '{refreshToken:$r}')")"
+  [[ "${out##*$'\n'}" == 2* ]] && fail "refresh token of a blocked account still works"
+  log "blocked: refresh refused (HTTP ${out##*$'\n'})"
+  req POST /api/orders "$OUTSIDER" "$(order_body)"
+  if [[ "$CODE" == 2* ]]; then
+    local stray; stray="$(jq -r '.data.id // empty' <<<"$BODY")"
+    log "note: the blocked customer's unexpired access token still placed order $stray (JWT lives up to 15 min)"
+    req PUT "/api/orders/$stray/cancel" "$ADMIN" '{"reason":"e2e cleanup"}'
+  else
+    log "blocked: the old access token cannot order (HTTP $CODE)"
+  fi
+
+  req POST "/api/auth/admin/accounts/$account/unblock" "$ADMIN"; expect_ok "admin unblocks account $account"
+  out="$(login_raw)"; [ "${out##*$'\n'}" = 200 ] || fail "unblocked account cannot log in: ${out:0:200}"
+  log "unblocked: login works again"
+}
+
 # ---------------------------------------------------------------- runner
 SLOW_SCENARIOS="S06 S14"; [ "${TIER2_SKIP_SLOW:-false}" = true ] || SLOW_SCENARIOS=""
 ONLY_SCENARIOS="${TIER2_ONLY:-}"
-run_scenarios "Tier 2" S03:s03 S10:s10 S04:s04 S11:s11 S07:s07 S05+S09:s05_s09 S08:s08 S06:s06 S14:s14
+run_scenarios "Tier 2" S03:s03 S10:s10 S04:s04 S11:s11 S07:s07 S05+S09:s05_s09 S08:s08 S06:s06 S14:s14 S15:s15 S17:s17 S19:s19
 exit $?
