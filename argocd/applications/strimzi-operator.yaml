@@ -15,7 +15,7 @@ spec:
   source:
     repoURL: 'https://strimzi.io/charts/'
     chart: strimzi-kafka-operator
-    targetRevision: 0.45.0
+    targetRevision: 0.45.2
     helm:
       values: |
         watchAnyNamespace: true
