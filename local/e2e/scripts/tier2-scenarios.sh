@@ -6,7 +6,9 @@
 # reported and the next one still runs. S12/S13 are covered by the golden flow
 # (verify-mvp-cod-flow.sh); S01/S02/S16/S18 need flags that staging keeps off and
 # run in tier2-capabilities.sh. S15 shipper cancels after accepting, S17 customer
-# cancels after a shipper accepted, S19 admin blocks an account.
+# cancels after a shipper accepted, S19 admin blocks an account, S21 a shipper
+# whose deposit cannot cover the COD order is never offered it, S22 reused
+# idempotency key / stale price quote are refused, S24 admin-only finance reads.
 #
 #   TIER2_ONLY        space-separated subset, e.g. "S05 S08"
 #   TIER2_SKIP_SLOW   true to skip S06/S14 (they wait out real offer windows)
@@ -260,5 +262,94 @@ s19() { # admin blocks a customer -> login and refresh refused; unblock lets the
 # ---------------------------------------------------------------- runner
 SLOW_SCENARIOS="S06 S14"; [ "${TIER2_SKIP_SLOW:-false}" = true ] || SLOW_SCENARIOS=""
 ONLY_SCENARIOS="${TIER2_ONLY:-}"
-run_scenarios "Tier 2" S03:s03 S10:s10 S04:s04 S11:s11 S07:s07 S05+S09:s05_s09 S08:s08 S06:s06 S14:s14 S15:s15 S17:s17 S19:s19
+s21() { # COD deposit gate: a shipper whose deposit cannot cover the order is never offered it
+  only_online 0
+  local who="${SHIP_ID[0]}" kept
+  kept="$(sql settlement_db "SELECT deposit_balance FROM balances WHERE entity_id = $who AND entity_type = 'SHIPPER';")"
+  [ -n "$kept" ] || fail "shipper#0 has no settlement balance row"
+  # Restore the deposit however the scenario ends (scenarios run in a subshell).
+  trap "sql settlement_db \"UPDATE balances SET deposit_balance = $kept WHERE entity_id = $who AND entity_type = 'SHIPPER';\" >/dev/null" EXIT
+  sql settlement_db "UPDATE balances SET deposit_balance = 1000 WHERE entity_id = $who AND entity_type = 'SHIPPER';" >/dev/null
+  new_order; confirm "$ORDER"; local poor_order="$ORDER" deadline=$((SECONDS + 240))
+  # The gate must hold for the whole search: never offered, then SHIPPER_NOT_FOUND.
+  while (( SECONDS < deadline )); do
+    offer_of 0; [ "$OFFER_ORDER" = "$poor_order" ] && fail "shipper#0 with a 1000 deposit was offered COD order $poor_order"
+    order_status "$poor_order"; [ "$STATUS" = SHIPPER_NOT_FOUND ] && break
+    sleep 3
+  done
+  [ "$STATUS" = SHIPPER_NOT_FOUND ] || fail "order $poor_order is $STATUS, expected SHIPPER_NOT_FOUND"
+  log "deposit 1000: order $poor_order never offered to shipper#0 and ended SHIPPER_NOT_FOUND"
+  sql settlement_db "UPDATE balances SET deposit_balance = $kept WHERE entity_id = $who AND entity_type = 'SHIPPER';" >/dev/null
+  new_order; confirm "$ORDER"
+  wait_offer "$ORDER" 90 0
+  log "deposit restored to $kept -> shipper#0 offered order $ORDER"
+  respond 0 "$ORDER" REJECT; expect_ok "shipper#0 rejects"
+  cancel "$ORDER"; expect_ok "cancel $ORDER"; wait_status "$ORDER" 'CANCELLED|SHIPPER_NOT_FOUND' 60
+}
+
+menu_price() { # -> PRICE of the seeded menu item, read from the public menu
+  req GET "/api/menu-items/restaurant/$REST_ID" "$CUSTOMER"; expect_ok "read menu"
+  PRICE="$(jq -r --argjson m "$MENU_ID" '.data[] | select(.id == $m) | .price' <<<"$BODY")"
+  [ -n "$PRICE" ] && [ "$PRICE" != null ] || fail "menu item $MENU_ID has no price: ${BODY:0:200}"
+}
+set_price() { req PUT "/api/menu-items/$MENU_ID" "$OWNER" "$(jq -nc --argjson p "$1" --argjson r "$REST_ID" '{price:$p, restaurantId:$r}')"; }
+
+s22() { # quote + idempotency guards: key reused with other data, price changed after preview
+  only_online
+  local preview key quote first old new
+  preview="$(jq -nc --argjson r "$REST_ID" --argjson m "$MENU_ID" --argjson lat "$CUST_LAT" --argjson lng "$CUST_LNG" \
+    '{restaurantId:$r, deliveryLat:$lat, deliveryLng:$lng, items:[{menuItemId:$m, quantity:1}]}')"
+  req POST /api/orders/checkout-preview "$CUSTOMER" "$preview"; expect_ok "checkout preview"
+  quote="$(jq -r '.data.quoteId // empty' <<<"$BODY")"; [ -n "$quote" ] || fail "preview had no quoteId"
+  key="$(uuidgen | tr '[:upper:]' '[:lower:]')"
+  EXTRA_HEADERS=(-H "Idempotency-Key: $key")
+  req POST /api/orders "$CUSTOMER" "$(order_body "$quote")"; expect_ok "create with key"
+  first="$(jq -r '.data.id' <<<"$BODY")"
+  req POST /api/orders "$CUSTOMER" "$(order_body "$quote" | jq -c '.items[0].quantity = 2')"
+  EXTRA_HEADERS=()
+  [ "$CODE" = 409 ] || fail "same key with a different cart -> HTTP $CODE (want 409) ${BODY:0:200}"
+  grep -q IDEMPOTENCY_KEY_REUSED <<<"$BODY" || fail "409 without IDEMPOTENCY_KEY_REUSED: ${BODY:0:200}"
+  log "key reused with another cart -> 409 IDEMPOTENCY_KEY_REUSED"
+  cancel "$first"; expect_ok "cancel $first"; wait_status "$first" CANCELLED 30
+
+  menu_price; old="$PRICE"; new="$(jq -n --argjson p "$old" '$p + 5000')"
+  trap "set_price $old >/dev/null 2>&1" EXIT
+  req POST /api/orders/checkout-preview "$CUSTOMER" "$preview"; expect_ok "preview at old price"
+  quote="$(jq -r '.data.quoteId' <<<"$BODY")"
+  set_price "$new"; expect_ok "owner raises the price to $new"
+  EXTRA_HEADERS=(-H "Idempotency-Key: $(uuidgen | tr '[:upper:]' '[:lower:]')")
+  req POST /api/orders "$CUSTOMER" "$(order_body "$quote")"
+  EXTRA_HEADERS=()
+  [ "$CODE" = 409 ] || fail "stale quote after a price change -> HTTP $CODE (want 409) ${BODY:0:300}"
+  grep -q PRICE_CHANGED <<<"$BODY" || fail "409 without PRICE_CHANGED: ${BODY:0:300}"
+  local fresh; fresh="$(jq -r '.. | objects | select(has("quoteId")) | .quoteId' <<<"$BODY" | head -1)"
+  [ -n "$fresh" ] && [ "$fresh" != "$quote" ] || fail "PRICE_CHANGED carried no fresh quote: ${BODY:0:300}"
+  log "price $old -> $new after preview: 409 PRICE_CHANGED with a fresh quote"
+  EXTRA_HEADERS=(-H "Idempotency-Key: $(uuidgen | tr '[:upper:]' '[:lower:]')")
+  req POST /api/orders "$CUSTOMER" "$(order_body "$fresh")"; expect_ok "create with the fresh quote"
+  EXTRA_HEADERS=()
+  local id sub; id="$(jq -r '.data.id' <<<"$BODY")"
+  sub="$(sql order_db "SELECT subtotal_price FROM orders WHERE id = $id;")"
+  [ "${sub%.*}" = "${new%.*}" ] || fail "order $id subtotal is $sub, expected the new price $new"
+  log "confirmed with the fresh quote: order $id at $new"
+  cancel "$id"; expect_ok "cancel $id"; wait_status "$id" CANCELLED 30
+  set_price "$old"; expect_ok "restore price $old"
+}
+
+s24() { # admin finance reads: admin sees them, customer and owner do not
+  admin_token
+  local path
+  for path in "/api/settlement/admin/balances" "/api/settlement/admin/transactions" \
+              "/api/settlement/admin/revenue" "/api/settlement/admin/refunds?limit=5"; do
+    req GET "$path" "$ADMIN"; expect_ok "admin GET $path"
+    req GET "$path" "$CUSTOMER"; expect_denied "customer GET $path"
+    req GET "$path" "$OWNER"; expect_denied "owner GET $path"
+  done
+  req GET /api/settlement/admin/transactions "$ADMIN"
+  local n; n="$(jq '.data | if type == "array" then length else (.content // .items // [] | length) end' <<<"$BODY")"
+  (( n <= 100 )) || fail "admin transactions returned $n rows, cap is 100"
+  log "4 admin finance reads: admin 200, customer + owner refused; transactions rows=$n (<=100)"
+}
+
+run_scenarios "Tier 2" S03:s03 S10:s10 S04:s04 S11:s11 S07:s07 S05+S09:s05_s09 S08:s08 S06:s06 S14:s14 S15:s15 S17:s17 S19:s19 S21:s21 S22:s22 S24:s24
 exit $?

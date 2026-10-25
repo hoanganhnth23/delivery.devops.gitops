@@ -12,6 +12,9 @@
 #   S20  voucher: admin creates a one-per-customer voucher, the customer collects
 #        it and gets the discount; a second order with it is refused; cancelling
 #        returns it and a new order can use it again.
+#   S23  voucher order delivered -> the platform books the voucher as a subsidy;
+#        credits - subsidy = COD deposit debit = what the customer paid, and the
+#        restaurant earns as if there were no voucher.
 # The script restarts those services with docker-compose.capabilities.yml and
 # puts them back without it on exit, so later tiers see the normal stack.
 #   TIER2C_ONLY   subset, e.g. "S02"
@@ -248,23 +251,28 @@ s18() { # cancelled COD order -> refund case NO_REFUND_REQUIRED, only its custom
 }
 
 ONLY_SCENARIOS="${TIER2C_ONLY:-}"
-s20() { # one-per-customer voucher: discount, reuse refused, cancel returns it
-  only_online
-  cover_customer
-  set_stock 20
+collected_voucher() { # CODE -> VID: a 15k one-per-customer platform voucher in the customer's wallet
   admin_token
-  local code="E2E$RUN_ID" start end
+  local code="$1" start end
   start="$(date -u -v-5M +%Y-%m-%dT%H:%M:%S 2>/dev/null || date -u -d '-5 min' +%Y-%m-%dT%H:%M:%S)"
   end="$(date -u -v+1d +%Y-%m-%dT%H:%M:%S 2>/dev/null || date -u -d '+1 day' +%Y-%m-%dT%H:%M:%S)"
   req POST /api/promotions/platform "$ADMIN" "$(jq -nc --arg c "$code" --arg s "$start" --arg e "$end" \
     '{code:$c, name:"E2E 15k", rewardType:"FIXED", discountValue:15000, scopeType:"ALL",
       totalQuantity:5, usageLimitPerUser:1, minOrderValue:0, startTime:$s, endTime:$e}')"
-  expect_ok "admin creates voucher"
-  local vid; vid="$(jq -r '.data.id' <<<"$BODY")"
-  [[ "$vid" =~ ^[0-9]+$ ]] || fail "voucher response had no id: ${BODY:0:300}"
+  expect_ok "admin creates voucher $code"
+  VID="$(jq -r '.data.id' <<<"$BODY")"
+  [[ "$VID" =~ ^[0-9]+$ ]] || fail "voucher response had no id: ${BODY:0:300}"
   req POST "/api/promotions/collect/$code" "$CUSTOMER"; expect_ok "customer collects $code"
   req GET /api/promotions/my-vouchers "$CUSTOMER"; expect_ok "my vouchers"
-  jq -e --argjson v "$vid" '.data | any(.id == $v)' <<<"$BODY" >/dev/null || fail "collected voucher missing from wallet"
+  jq -e --argjson v "$VID" '.data | any(.id == $v)' <<<"$BODY" >/dev/null || fail "collected voucher missing from wallet"
+}
+
+s20() { # one-per-customer voucher: discount, reuse refused, cancel returns it
+  only_online
+  cover_customer
+  set_stock 20
+  local code="E2E$RUN_ID"
+  collected_voucher "$code"; local vid="$VID"
 
   local body; body="$(order_body | jq -c --argjson v "$vid" '. + {voucherIds:[$v]}')"
   req POST /api/orders "$CUSTOMER" "$body"; expect_ok "order with voucher"
@@ -301,4 +309,47 @@ s20() { # one-per-customer voucher: discount, reuse refused, cancel returns it
   [ "$state" = RELEASED ] || fail "voucher reservation of order $third is '$state' after its cancel"
 }
 
-run_scenarios "Tier 2 (capabilities)" S01:s01 S02:s02 S16:s16 S16R:s16r S18:s18 S20:s20
+s23() { # delivered voucher order: the ledger reconciles to what the customer paid
+  only_online 0
+  cover_customer
+  set_stock 20
+  collected_voucher "E2EL$RUN_ID"
+  req POST /api/orders "$CUSTOMER" "$(order_body | jq -c --argjson v "$VID" '. + {voucherIds:[$v]}')"
+  expect_ok "order with voucher"
+  ORDER="$(jq -r '.data.id' <<<"$BODY")"
+  local subtotal discount fee total
+  read -r subtotal discount fee total < <(sql order_db \
+    "SELECT subtotal_price::int, discount_amount::int, shipping_fee::int, total_price::int FROM orders WHERE id = $ORDER;" | tr '|' ' ')
+  [ "$discount" = 15000 ] || fail "order $ORDER discount is '$discount', expected 15000"
+  (( total == subtotal + fee - discount )) || fail "order $ORDER total $total != $subtotal + $fee - $discount"
+  log "order $ORDER: subtotal $subtotal + ship $fee - voucher $discount = customer pays $total"
+
+  confirm "$ORDER"
+  wait_offer "$ORDER" 90 0; DELIVERY="$OFFER_DELIVERY"
+  respond 0 "$ORDER" ACCEPT; expect_ok "shipper#0 accepts"
+  wait_status "$ORDER" ASSIGNED 60
+  finish 0 "$DELIVERY" "$ORDER"
+
+  # A platform voucher adds a fifth row: the platform, not the restaurant, pays it.
+  local rows="" deadline=$((SECONDS + 60))
+  while (( SECONDS < deadline )); do
+    rows="$(sql settlement_db "SELECT count(*) FROM transactions WHERE order_id = $ORDER;")"
+    [ "$rows" = 5 ] && break; sleep 2
+  done
+  [ "$rows" = 5 ] || fail "order $ORDER has $rows ledger rows, expected 5 (4 + platform subsidy)"
+  local cod credits subsidy restaurant
+  read -r cod credits subsidy restaurant < <(sql settlement_db "SELECT
+      sum(amount) FILTER (WHERE direction = 'DEBIT' AND reason = 'COD_SETTLEMENT')::int,
+      sum(amount) FILTER (WHERE direction = 'CREDIT')::int,
+      sum(amount) FILTER (WHERE direction = 'DEBIT' AND reason = 'PROMOTION_SUBSIDY')::int,
+      sum(amount) FILTER (WHERE entity_type = 'RESTAURANT')::int
+    FROM transactions WHERE order_id = $ORDER;" | tr '|' ' ')
+  log "ledger: credits $credits - platform subsidy $subsidy = $((credits - subsidy)); COD debit $cod; restaurant $restaurant"
+  [ "$cod" = "$total" ] || fail "COD deposit debit $cod != customer paid $total"
+  [ "$subsidy" = "$discount" ] || fail "platform subsidy $subsidy != voucher discount $discount"
+  (( credits - subsidy == total )) || fail "credits $credits - subsidy $subsidy != customer paid $total"
+  # The restaurant earns as if there were no voucher: subtotal minus the default 20% commission.
+  (( restaurant == subtotal * 80 / 100 )) || fail "restaurant earned $restaurant, expected $((subtotal * 80 / 100))"
+}
+
+run_scenarios "Tier 2 (capabilities)" S01:s01 S02:s02 S16:s16 S16R:s16r S18:s18 S20:s20 S23:s23
