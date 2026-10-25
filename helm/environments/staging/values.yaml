@@ -93,6 +93,17 @@ auth-service:
       secretName: delivery-jwt
       mountPath: /etc/delivery/jwt
   env:
+    # Cờ luồng nghiệp vụ giống local/e2e/docker-compose.yml (luồng COD đầy đủ).
+    - name: IDENTITY_EVENTS_ENABLED
+      value: "true"
+    - name: IDENTITY_OUTBOX_RELAY_ENABLED
+      value: "true"
+    - name: IDENTITY_STATUS_BOOTSTRAP_ENABLED
+      value: "true"
+    - name: PUBLIC_REGISTRATION_ENABLED
+      value: "true"
+    - name: REGISTRATION_CANARY_PERCENTAGE
+      value: "100"
     - name: SPRING_PROFILES_ACTIVE
       value: "staging"
     - name: JWT_PRIVATE_KEY_PATH
@@ -127,6 +138,11 @@ user-service:
   envFrom: *platformEnvFrom
   secretMounts: *runtimeSecretMounts
   env:
+    # Cờ luồng nghiệp vụ giống local/e2e/docker-compose.yml (luồng COD đầy đủ).
+    - name: IDENTITY_EVENTS_ENABLED
+      value: "true"
+    - name: IDENTITY_OUTBOX_RELAY_ENABLED
+      value: "true"
     - name: SPRING_PROFILES_ACTIVE
       value: "staging"
     - name: SPRING_DATASOURCE_URL
@@ -335,6 +351,11 @@ match-service:
   envFrom: *platformEnvFrom
   secretMounts: *runtimeSecretMounts
   env:
+    # Cờ luồng nghiệp vụ giống local/e2e/docker-compose.yml (luồng COD đầy đủ).
+    - name: MATCH_OUTBOX_RELAY_ENABLED
+      value: "true"
+    - name: MATCH_CANCELLATION_PROJECTION_RELAY_ENABLED
+      value: "true"
     - name: SPRING_PROFILES_ACTIVE
       value: "staging"
     - name: SPRING_DATASOURCE_URL
@@ -474,6 +495,9 @@ dispatch-service:
   envFrom: *platformEnvFrom
   secretMounts: *runtimeSecretMounts
   env:
+    # Cờ luồng nghiệp vụ giống local/e2e/docker-compose.yml (luồng COD đầy đủ).
+    - name: SAGA_OUTBOX_RELAY_ENABLED
+      value: "true"
     - name: SPRING_PROFILES_ACTIVE
       value: "staging"
     - name: SPRING_DATASOURCE_URL
