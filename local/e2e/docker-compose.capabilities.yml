@@ -1,0 +1,12 @@
+# Overlay for scripts/tier2-capabilities.sh: switches on the two checkout
+# capabilities that staging keeps off (delivery-zone check, stock reservation).
+# The script layers it on and removes it again; the base stack runs without it.
+services:
+  restaurant-service:
+    environment:
+      RESTAURANT_SERVICEABILITY_ENABLED: "true"
+      RESTAURANT_INVENTORY_ENABLED: "true"
+  order-service:
+    environment:
+      ORDER_SERVICEABILITY_ENFORCEMENT_ENABLED: "true"
+      ORDER_INVENTORY_RESERVATION_ENABLED: "true"
