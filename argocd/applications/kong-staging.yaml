@@ -29,6 +29,10 @@ spec:
           headers: "off"
         admin:
           enabled: false
+          # Mặc định chart nghe cả [::1]; pod GKE không có IPv6 loopback -> nginx không bind được.
+          addresses: ["127.0.0.1"]
+        manager:
+          enabled: false
         proxy:
           type: LoadBalancer
           loadBalancerIP: 34.87.64.137
