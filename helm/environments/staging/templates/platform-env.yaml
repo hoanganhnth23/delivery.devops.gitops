@@ -13,6 +13,12 @@ data:
   MANAGEMENT_TRACING_ENABLED: {{ .Values.platformEnv.tracingEnabled | quote }}
   TRACING_SAMPLE_PROBABILITY: {{ .Values.platformEnv.tracingSampleProbability | quote }}
   JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError"
+  # Staging chưa cấu hình SMTP: health mail luôn DOWN làm auth-service không bao giờ Ready.
+  MANAGEMENT_HEALTH_MAIL_ENABLED: "false"
+  # Actuator chỉ mở ở cổng quản trị nội bộ 9090 (không qua Kong/api-gateway): hiện chi
+  # tiết thành phần để biết vì sao health 503.
+  MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS: "always"
+  MANAGEMENT_ENDPOINT_HEALTH_SHOW_COMPONENTS: "always"
 
   # Service-to-service (HTTP trực tiếp qua k8s Service)
   AUTH_SERVICE_INTERNAL_URL: "http://auth-service:8081"
