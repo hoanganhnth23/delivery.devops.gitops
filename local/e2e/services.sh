@@ -1,5 +1,5 @@
 # Services in the local E2E stack and the delivery.core.* repo each is built from.
-E2E_SERVICES="api-gateway web-bff auth user restaurant order delivery dispatch match tracking routing shipper settlement notification"
+E2E_SERVICES="api-gateway web-bff auth user restaurant order delivery dispatch match tracking routing shipper settlement notification promotion"
 
 service_repo() {
   case "$1" in

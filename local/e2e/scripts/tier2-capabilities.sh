@@ -9,6 +9,9 @@
 #        shipper is free, settlement opens a MANUAL_REVIEW case. S16R: retry then deliver -> RESOLVED.
 #   S18  cancelled COD order -> refund case NO_REFUND_REQUIRED, visible to its
 #        customer only.
+#   S20  voucher: admin creates a one-per-customer voucher, the customer collects
+#        it and gets the discount; a second order with it is refused; cancelling
+#        returns it and a new order can use it again.
 # The script restarts those services with docker-compose.capabilities.yml and
 # puts them back without it on exit, so later tiers see the normal stack.
 #   TIER2C_ONLY   subset, e.g. "S02"
@@ -18,7 +21,7 @@ SUITE=tier2c
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STACK_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 PROJECT="${E2E_PROJECT:-delivery-e2e}"
-CAP_SERVICES=(restaurant-service order-service delivery-service settlement-service)
+CAP_SERVICES=(restaurant-service order-service delivery-service settlement-service promotion-service)
 CALLERS=(api-gateway match-service tracking-service)
 
 wait_healthy() { # SERVICE...
@@ -245,4 +248,57 @@ s18() { # cancelled COD order -> refund case NO_REFUND_REQUIRED, only its custom
 }
 
 ONLY_SCENARIOS="${TIER2C_ONLY:-}"
-run_scenarios "Tier 2 (capabilities)" S01:s01 S02:s02 S16:s16 S16R:s16r S18:s18
+s20() { # one-per-customer voucher: discount, reuse refused, cancel returns it
+  only_online
+  cover_customer
+  set_stock 20
+  admin_token
+  local code="E2E$RUN_ID" start end
+  start="$(date -u -v-5M +%Y-%m-%dT%H:%M:%S 2>/dev/null || date -u -d '-5 min' +%Y-%m-%dT%H:%M:%S)"
+  end="$(date -u -v+1d +%Y-%m-%dT%H:%M:%S 2>/dev/null || date -u -d '+1 day' +%Y-%m-%dT%H:%M:%S)"
+  req POST /api/promotions/platform "$ADMIN" "$(jq -nc --arg c "$code" --arg s "$start" --arg e "$end" \
+    '{code:$c, name:"E2E 15k", rewardType:"FIXED", discountValue:15000, scopeType:"ALL",
+      totalQuantity:5, usageLimitPerUser:1, minOrderValue:0, startTime:$s, endTime:$e}')"
+  expect_ok "admin creates voucher"
+  local vid; vid="$(jq -r '.data.id' <<<"$BODY")"
+  [[ "$vid" =~ ^[0-9]+$ ]] || fail "voucher response had no id: ${BODY:0:300}"
+  req POST "/api/promotions/collect/$code" "$CUSTOMER"; expect_ok "customer collects $code"
+  req GET /api/promotions/my-vouchers "$CUSTOMER"; expect_ok "my vouchers"
+  jq -e --argjson v "$vid" '.data | any(.id == $v)' <<<"$BODY" >/dev/null || fail "collected voucher missing from wallet"
+
+  local body; body="$(order_body | jq -c --argjson v "$vid" '. + {voucherIds:[$v]}')"
+  req POST /api/orders "$CUSTOMER" "$body"; expect_ok "order with voucher"
+  local first discount
+  first="$(jq -r '.data.id' <<<"$BODY")"
+  discount="$(sql order_db "SELECT discount_amount FROM orders WHERE id = $first;")"
+  [ "${discount%.*}" = 15000 ] || fail "order $first discount is '$discount', expected 15000"
+  log "order $first got 15000 off with voucher $code"
+
+  req POST /api/orders "$CUSTOMER" "$body"
+  expect_denied "second order with a one-per-customer voucher"
+  log "reuse refused (HTTP $CODE) ${BODY:0:160}"
+
+  cancel "$first"; expect_ok "cancel order $first"; wait_status "$first" CANCELLED 30
+  # Promotion returns the voucher when it consumes order.cancelled.
+  local deadline=$((SECONDS + 60)) third=""
+  while (( SECONDS < deadline )); do
+    req POST /api/orders "$CUSTOMER" "$body"
+    [[ "$CODE" == 2* ]] && { third="$(jq -r '.data.id' <<<"$BODY")"; break; }
+    sleep 3
+  done
+  [ -n "$third" ] || fail "voucher was not returned after cancelling order $first (last HTTP $CODE ${BODY:0:200})"
+  discount="$(sql order_db "SELECT discount_amount FROM orders WHERE id = $third;")"
+  [ "${discount%.*}" = 15000 ] || fail "order $third discount is '$discount' after the voucher came back"
+  log "cancel returned the voucher; order $third used it again"
+  cancel "$third"; expect_ok "clean up order $third"
+  # Promotion only consumes order events while checkout is on; wait for the
+  # release before the overlay is removed, or the voucher sits RESERVED until expiry.
+  local state="" deadline=$((SECONDS + 30))
+  while (( SECONDS < deadline )); do
+    state="$(sql promotion_db "SELECT state FROM voucher_reservations WHERE order_id = $third;")"
+    [ "$state" = RELEASED ] && break; sleep 2
+  done
+  [ "$state" = RELEASED ] || fail "voucher reservation of order $third is '$state' after its cancel"
+}
+
+run_scenarios "Tier 2 (capabilities)" S01:s01 S02:s02 S16:s16 S16R:s16r S18:s18 S20:s20

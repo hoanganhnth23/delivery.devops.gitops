@@ -1,4 +1,4 @@
-# Local full-stack E2E: infra + 14 Spring services built by build.sh.
+# Local full-stack E2E: infra + 15 Spring services built by build.sh.
 # No config-server/Eureka: services talk over static DNS names, as on staging
 # (helm/environments/staging/templates/platform-env.yaml).
 # Secrets are generated per run into .run/ (git-ignored) by up.sh.
@@ -26,6 +26,7 @@ x-service-env: &service-env
   ROUTING_SERVICE_URL: http://routing-service:8094
   SHIPPER_SERVICE_URL: http://shipper-service:8089
   SETTLEMENT_SERVICE_URL: http://settlement-service:8090
+  PROMOTION_SERVICE_URL: http://promotion-service:8096
   # Five clients are still @LoadBalanced (auth→user, order→restaurant,
   # restaurant→order, match→settlement, tracking→delivery). Without Eureka the
   # load balancer needs static instances or every call fails with
@@ -136,6 +137,7 @@ services:
       APP_SETTLEMENT_SERVICE_URI: http://settlement-service:8090
       APP_NOTIFICATION_SERVICE_URI: http://notification-service:8091
       APP_TRACKING_SERVICE_URI: http://tracking-service:8093
+      APP_PROMOTION_SERVICE_URI: http://promotion-service:8096
       APP_TRACKING_SERVICE_WS_URI: ws://tracking-service:8093
       WEB_BFF_SERVICE_URI: http://web-bff-service:8091
     depends_on:
@@ -247,6 +249,17 @@ services:
     environment:
       <<: *service-env
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/tracking_db
+    depends_on: *needs-data
+
+  # Vouchers. Checkout use stays off (as on staging) until the capabilities
+  # overlay switches it on for S20.
+  promotion-service:
+    <<: *service
+    image: delivery-e2e/promotion:local
+    environment:
+      <<: *service-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/promotion_db
+      PROMOTION_OUTBOX_RELAY_ENABLED: "true"
     depends_on: *needs-data
 
   routing-service:

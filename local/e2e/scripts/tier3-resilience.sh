@@ -32,17 +32,27 @@ wait_case() { # ORDER REGEX SECONDS
 
 # Re-publish an event a service already emitted, exactly as stored in its outbox.
 replay() { # DB TABLE TOPIC AGGREGATE_ID [first|last]
-  local order="ASC"; [ "${5:-first}" = last ] && order="DESC"
+  replay_where "$1" "$2" "$3" "aggregate_id = '$4'" "aggregate $4" "${5:-first}"
+}
+# Delivery keys its outbox by order for some topics and by delivery for others;
+# match the type too, since an order id can equal another order's delivery id.
+replay_delivery() { # TOPIC ORDER_ID DELIVERY_ID [first|last]
+  replay_where delivery_db outbox_events "$1" \
+    "((aggregate_type = 'ORDER' AND aggregate_id = '$2') OR (aggregate_type = 'DELIVERY' AND aggregate_id = '$3'))" \
+    "order $2 / delivery $3" "${4:-first}"
+}
+replay_where() { # DB TABLE TOPIC WHERE LABEL first|last
+  local order="ASC"; [ "$6" = last ] && order="DESC"
   local row key payload
   row="$(sql "$1" "SELECT coalesce(event_key, aggregate_id) || chr(9) || payload FROM $2
-    WHERE topic = '$3' AND aggregate_id = '$4' ORDER BY id $order LIMIT 1;")"
-  [ -n "$row" ] || fail "no $3 event for aggregate $4 in $1.$2"
+    WHERE topic = '$3' AND $4 ORDER BY id $order LIMIT 1;")"
+  [ -n "$row" ] || fail "no $3 event for $5 in $1.$2"
   key="${row%%$'\t'*}"; payload="${row#*$'\t'}"
   printf '%s\t%s\n' "$key" "$payload" | "${COMPOSE_COMMAND[@]}" exec -T kafka \
     kafka-console-producer --bootstrap-server kafka:9092 --topic "$3" \
     --property parse.key=true --property "key.separator=$(printf '\t')" >/dev/null \
     || fail "could not publish $3"
-  log "replayed ${5:-first} $3 (aggregate $4)"
+  log "replayed $6 $3 ($5)"
 }
 
 snapshot() { # ORDER DELIVERY -> one line describing every service's view
@@ -97,11 +107,11 @@ r02() { # duplicates + stale events on a finished order, then out-of-order on a 
   before="$(snapshot "$done_order" "$done_delivery")"
   log "finished order before replays: $before"
   replay order_db outbox_events order.created "$done_order"                     # duplicate start
-  replay delivery_db outbox_events delivery.created.result "$done_delivery"     # stale
-  replay delivery_db outbox_events delivery.offer-persisted "$done_delivery"    # stale offer
-  replay delivery_db outbox_events delivery.shipper-accepted "$done_delivery"   # duplicate
-  replay delivery_db outbox_events delivery.shipper-accepted "$done_delivery"
-  replay delivery_db outbox_events delivery.completed "$done_delivery" last     # duplicate money event
+  replay_delivery delivery.created.result "$done_order" "$done_delivery"     # stale
+  replay_delivery delivery.offer-persisted "$done_order" "$done_delivery"    # stale offer
+  replay_delivery delivery.shipper-accepted "$done_order" "$done_delivery"   # duplicate
+  replay_delivery delivery.shipper-accepted "$done_order" "$done_delivery"
+  replay_delivery delivery.completed "$done_order" "$done_delivery" last     # duplicate money event
   sleep 15
   after="$(snapshot "$done_order" "$done_delivery")"
   [ "$after" = "$before" ] || fail "replays changed the finished order: before [$before] after [$after]"
@@ -115,8 +125,8 @@ r02() { # duplicates + stale events on a finished order, then out-of-order on a 
   wait_status "$ORDER" WAIT_SHIPPER_CONFIRM 30
   wait_case "$ORDER" SHIPPER_FOUND 30
   replay order_db outbox_events order.created "$ORDER"
-  replay delivery_db outbox_events delivery.created.result "$live_delivery"
-  replay delivery_db outbox_events delivery.offer-persisted "$live_delivery"
+  replay_delivery delivery.created.result "$ORDER" "$live_delivery"
+  replay_delivery delivery.offer-persisted "$ORDER" "$live_delivery"
   sleep 10
   wait_case "$ORDER" SHIPPER_FOUND 5
   offer_of 0; [ "$OFFER_ORDER" = "$ORDER" ] || fail "out-of-order replays took the live offer away"

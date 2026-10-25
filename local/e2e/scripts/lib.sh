@@ -53,6 +53,7 @@ refresh_tokens() {
   t="$(login "$CUSTOMER_EMAIL")"; [ -n "$t" ] && CUSTOMER="$t"
   t="$(login "$OWNER_EMAIL")"; [ -n "$t" ] && OWNER="$t"
   for i in 0 1 2; do t="$(login "${SHIP_EMAIL[$i]}")"; [ -n "$t" ] && SHIP_TOKEN[$i]="$t"; done
+  [ -n "${OUTSIDER:-}" ] && { t="$(login "$OUTSIDER_EMAIL")"; [ -n "$t" ] && OUTSIDER="$t"; }
   TOKENS_AT=$SECONDS
   echo "[${SUITE:-e2e}] access tokens refreshed"
 }
@@ -82,6 +83,7 @@ relogin_for() { # stale token -> FRESH token for the same actor (kept for later 
   local i t=""
   if [ "$1" = "$CUSTOMER" ]; then t="$(login "$CUSTOMER_EMAIL")"; [ -n "$t" ] && CUSTOMER="$t"
   elif [ "$1" = "$OWNER" ]; then t="$(login "$OWNER_EMAIL")"; [ -n "$t" ] && OWNER="$t"
+  elif [ -n "${OUTSIDER:-}" ] && [ "$1" = "$OUTSIDER" ]; then t="$(login "$OUTSIDER_EMAIL")"; [ -n "$t" ] && OUTSIDER="$t"
   else
     for i in 0 1 2; do
       [ "$1" = "${SHIP_TOKEN[$i]}" ] && { t="$(login "${SHIP_EMAIL[$i]}")"; [ -n "$t" ] && SHIP_TOKEN[$i]="$t"; }
