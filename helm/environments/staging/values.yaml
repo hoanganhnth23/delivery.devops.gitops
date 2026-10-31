@@ -92,7 +92,9 @@ auth-service:
     - name: REGISTRATION_CANARY_PERCENTAGE
       value: "100"
     - name: SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE
-      value: "8"
+      value: "16"
+    - name: SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE
+      value: "4"
     - name: SPRING_PROFILES_ACTIVE
       value: "staging"
     - name: JWT_PRIVATE_KEY_PATH
@@ -151,7 +153,7 @@ restaurant-service:
   replicaCount: 1
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/restaurant-service
-    tag: "staging-28abe8bf08d47f0eb810e08c969e0214badfc9fc"
+    tag: "staging-9c1123c1728735b697e5121961324f1f7b6c6b09"
     # Tag staging-<sha> có thể bị build đè (CI chạy lại cùng commit), nên luôn kéo lại.
     pullPolicy: Always
   service:

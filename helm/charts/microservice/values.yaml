@@ -1,6 +1,12 @@
 # Default values for microservice chart.
 replicaCount: 1
 
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 0
+    maxUnavailable: 1
+
 image:
   repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/api-gateway
   pullPolicy: IfNotPresent
@@ -124,3 +130,14 @@ secretMounts: []
 #   mountPath: /run/secrets
 #   optional: false
 # application.yaml / properties if mounted as configmap
+
+# Pod balancing across nodes to prevent hotspot saturation
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: kubernetes.io/hostname
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchExpressions:
+        - key: app.kubernetes.io/managed-by
+          operator: In
+          values: ["Helm"]
