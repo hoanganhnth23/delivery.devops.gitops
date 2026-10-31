@@ -27,6 +27,8 @@ spec:
           database: "off"
           # Không lộ phiên bản Kong trong header trả về.
           headers: "off"
+          proxy_access_log: "off"
+          admin_access_log: "off"
         admin:
           enabled: false
           # Mặc định chart nghe cả [::1]; pod GKE không có IPv6 loopback -> nginx không bind được.

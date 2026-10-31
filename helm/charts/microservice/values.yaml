@@ -138,6 +138,6 @@ topologySpreadConstraints:
     whenUnsatisfiable: ScheduleAnyway
     labelSelector:
       matchExpressions:
-        - key: app.kubernetes.io/managed-by
+        - key: app.kubernetes.io/instance
           operator: In
-          values: ["Helm"]
+          values: ["delivery-staging", "delivery"]
