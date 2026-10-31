@@ -13,6 +13,11 @@ data:
   MANAGEMENT_TRACING_ENABLED: {{ .Values.platformEnv.tracingEnabled | quote }}
   TRACING_SAMPLE_PROBABILITY: {{ .Values.platformEnv.tracingSampleProbability | quote }}
   JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError"
+  # Tier 1 Database Connection Pool Tuning:
+  # Mặc định giới hạn 3 kết nối cho các service phụ, giải phóng >60% connection cho PostgreSQL
+  SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: {{ .Values.platformEnv.hikariMaxPoolSize | default "3" | quote }}
+  SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: "1"
+  SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT: "3000"
   # Staging chưa cấu hình SMTP: health mail luôn DOWN làm auth-service không bao giờ Ready.
   MANAGEMENT_HEALTH_MAIL_ENABLED: "false"
   # Actuator chỉ mở ở cổng quản trị nội bộ 9090 (không qua Kong/api-gateway): hiện chi

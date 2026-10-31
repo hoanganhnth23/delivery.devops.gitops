@@ -91,6 +91,8 @@ auth-service:
       value: "true"
     - name: REGISTRATION_CANARY_PERCENTAGE
       value: "100"
+    - name: SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE
+      value: "8"
     - name: SPRING_PROFILES_ACTIVE
       value: "staging"
     - name: JWT_PRIVATE_KEY_PATH
@@ -160,6 +162,8 @@ restaurant-service:
   envFrom: *platformEnvFrom
   secretMounts: *runtimeSecretMounts
   env:
+    - name: SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE
+      value: "10"
     - name: SPRING_PROFILES_ACTIVE
       value: "staging"
     - name: SPRING_DATASOURCE_URL
@@ -190,6 +194,8 @@ order-service:
   envFrom: *platformEnvFrom
   secretMounts: *runtimeSecretMounts
   env:
+    - name: SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE
+      value: "10"
     - name: SPRING_PROFILES_ACTIVE
       value: "staging"
     - name: SPRING_DATASOURCE_URL
