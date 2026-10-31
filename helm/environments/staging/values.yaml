@@ -153,31 +153,50 @@ restaurant-service:
   replicaCount: 1
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/restaurant-service
-    tag: "staging-13632819ab2c0390a1a9d72a2b7e770ec081f512"
+    tag: "staging-3925eff2c1e1c001344c1e97cdcfda66e5e07623"
     # Tag staging-<sha> có thể bị build đè (CI chạy lại cùng commit), nên luôn kéo lại.
     pullPolicy: Always
   service:
     port: 8083
     targetPort: 8083
-  resources: *serviceResources
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 768Mi
+    requests:
+      cpu: 450m
+      memory: 384Mi
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+                - key: app.kubernetes.io/name
+                  operator: In
+                  values: ["order-service", "kong", "tracking-service"]
+            topologyKey: "kubernetes.io/hostname"
   metrics: *serviceMetrics
   envFrom: *platformEnvFrom
   secretMounts: *runtimeSecretMounts
   env:
+    - name: SPRING_THREADS_VIRTUAL_ENABLED
+      value: "true"
     - name: JAVA_TOOL_OPTIONS
       value: "-XX:MaxRAMPercentage=60.0 -XX:+ExitOnOutOfMemoryError -Xss512k"
     - name: TOMCAT_THREADS_MAX
-      value: "60"
+      value: "200"
     - name: TOMCAT_THREADS_MIN_SPARE
-      value: "10"
+      value: "20"
     - name: TOMCAT_ACCEPT_COUNT
-      value: "100"
+      value: "200"
     - name: SPRING_CACHE_CAFFEINE_SPEC
       value: "maximumSize=1000,expireAfterWrite=60s"
     - name: SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE
-      value: "16"
+      value: "20"
     - name: SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE
-      value: "4"
+      value: "5"
     - name: SPRING_PROFILES_ACTIVE
       value: "staging"
     - name: SPRING_DATASOURCE_URL
@@ -197,29 +216,50 @@ order-service:
   replicaCount: 1
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/order-service
-    tag: "staging-a94bea6882bf7e08e98729a2f5082c86dfd8a920"
+    tag: "staging-907887a018a6921f3b92ac52709cf743289613e9"
     # Tag staging-<sha> có thể bị build đè (CI chạy lại cùng commit), nên luôn kéo lại.
     pullPolicy: Always
   service:
     port: 8084
     targetPort: 8084
-  resources: *serviceResources
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 768Mi
+    requests:
+      cpu: 450m
+      memory: 384Mi
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+                - key: app.kubernetes.io/name
+                  operator: In
+                  values: ["restaurant-service", "kong", "tracking-service"]
+            topologyKey: "kubernetes.io/hostname"
   metrics: *serviceMetrics
   envFrom: *platformEnvFrom
   secretMounts: *runtimeSecretMounts
   env:
+    - name: SPRING_THREADS_VIRTUAL_ENABLED
+      value: "true"
     - name: JAVA_TOOL_OPTIONS
       value: "-XX:MaxRAMPercentage=60.0 -XX:+ExitOnOutOfMemoryError -Xss512k"
+    - name: TOMCAT_THREADS_MAX
+      value: "200"
     - name: APP_RESILIENCE_RESTAURANT_MAX_CONCURRENT_CALLS
-      value: "64"
+      value: "100"
     - name: APP_RESILIENCE_RESTAURANT_TIMEOUT_MS
       value: "3000"
     - name: APP_RESILIENCE_RESTAURANT_WAIT_OPEN_SECONDS
       value: "5"
     - name: SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE
-      value: "16"
+      value: "20"
     - name: SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE
-      value: "4"
+      value: "5"
     - name: SPRING_PROFILES_ACTIVE
       value: "staging"
     - name: SPRING_DATASOURCE_URL
@@ -422,17 +462,38 @@ tracking-service:
   replicaCount: 1
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/tracking-service
-    tag: "staging-6661d10296fdeec57f8fb1b0789c55b4fa66e62d"
+    tag: "staging-a4f757db0b7d2d08fe6d74001153c52086722727"
     # Tag staging-<sha> có thể bị build đè (CI chạy lại cùng commit), nên luôn kéo lại.
     pullPolicy: Always
   service:
     port: 8093
     targetPort: 8093
-  resources: *serviceResources
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 768Mi
+    requests:
+      cpu: 350m
+      memory: 384Mi
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+                - key: app.kubernetes.io/name
+                  operator: In
+                  values: ["restaurant-service", "order-service"]
+            topologyKey: "kubernetes.io/hostname"
   metrics: *serviceMetrics
   envFrom: *platformEnvFrom
   secretMounts: *runtimeSecretMounts
   env:
+    - name: SPRING_THREADS_VIRTUAL_ENABLED
+      value: "true"
+    - name: JAVA_TOOL_OPTIONS
+      value: "-XX:MaxRAMPercentage=60.0 -XX:+ExitOnOutOfMemoryError -Xss512k"
     - name: SPRING_PROFILES_ACTIVE
       value: "staging"
     - name: SPRING_DATASOURCE_URL

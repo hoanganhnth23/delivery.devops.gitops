@@ -53,11 +53,22 @@ spec:
               memory: 256Mi
         resources:
           requests:
-            cpu: 100m
-            memory: 192Mi
+            cpu: 300m
+            memory: 256Mi
           limits:
             cpu: "1"
             memory: 512Mi
+        affinity:
+          podAntiAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 100
+                podAffinityTerm:
+                  labelSelector:
+                    matchExpressions:
+                      - key: app.kubernetes.io/name
+                        operator: In
+                        values: ["restaurant-service", "order-service"]
+                  topologyKey: "kubernetes.io/hostname"
         serviceMonitor:
           enabled: true
           interval: 15s
