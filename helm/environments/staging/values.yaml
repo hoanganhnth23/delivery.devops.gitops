@@ -62,7 +62,7 @@ auth-service:
   replicaCount: 1
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/auth-service
-    tag: "staging-b67b36f1d10ff6a2e6a066fa710aea94545c9f44"
+    tag: "staging-64e8b65fc21bb92361d41bc2add19e7241a907e2"
     # Tag staging-<sha> có thể bị build đè (CI chạy lại cùng commit), nên luôn kéo lại.
     pullPolicy: Always
   service:
@@ -165,7 +165,9 @@ restaurant-service:
   secretMounts: *runtimeSecretMounts
   env:
     - name: SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE
-      value: "10"
+      value: "16"
+    - name: SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE
+      value: "4"
     - name: SPRING_PROFILES_ACTIVE
       value: "staging"
     - name: SPRING_DATASOURCE_URL
@@ -197,7 +199,9 @@ order-service:
   secretMounts: *runtimeSecretMounts
   env:
     - name: SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE
-      value: "10"
+      value: "16"
+    - name: SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE
+      value: "4"
     - name: SPRING_PROFILES_ACTIVE
       value: "staging"
     - name: SPRING_DATASOURCE_URL
