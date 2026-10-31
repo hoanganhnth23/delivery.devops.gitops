@@ -17,6 +17,13 @@ platformEnv:
   tracingEnabled: "false"
   tracingSampleProbability: "0.05"
 
+# Tích hợp Google Cloud Secret Manager qua External Secrets Operator
+externalSecrets:
+  enabled: true
+  projectID: "lithe-paratext-506208-s5"
+  clusterSecretStoreName: "gcp-secret-store"
+  refreshInterval: "1h"
+
 _defaults:
   # Nấc 1 "yếu nhưng đủ chạy": request nhỏ, limit cho phép burst khi có tải.
   # Tối ưu xong mới nâng (xem plan).

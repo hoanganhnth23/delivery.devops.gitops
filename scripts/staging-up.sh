@@ -27,7 +27,10 @@ if kubectl -n delivery-staging get cluster delivery-pg >/dev/null 2>&1; then
   kubectl -n delivery-staging annotate cluster delivery-pg cnpg.io/hibernation=off --overwrite >/dev/null
 fi
 
-# Secret runtime/JWT (idempotent, chỉ tạo khi thiếu).
+# GCP Secret Manager & External Secrets Operator credentials (idempotent).
+bash "$(dirname "$0")/setup-gcp-secret-manager.sh"
+
+# Secret runtime/JWT fallback (idempotent, chỉ tạo khi thiếu).
 bash "$(dirname "$0")/staging-secrets.sh"
 
 for ns in argocd monitoring delivery-staging; do

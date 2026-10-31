@@ -2,6 +2,10 @@
 # Tạo secret runtime cho staging. Idempotent: secret đã có thì giữ nguyên
 # (trừ khi ROTATE=1). Không in giá trị secret ra màn hình, không ghi vào Git.
 #
+# Lưu ý: Trên staging chuẩn, delivery-runtime-secrets và delivery-jwt
+# được External Secrets Operator (ESO) quản lý tập trung từ Google Cloud Secret Manager (GSM).
+# Script này đóng vai trò fallback khi chạy local/dev cụm không kết nối GSM.
+#
 #   bash scripts/staging-secrets.sh
 #   APP_SECRETS_ENV_FILE=~/delivery-staging.env bash scripts/staging-secrets.sh   # thêm SMTP_*, MAPBOX_*, VNPAY_*
 #   ROTATE=1 bash scripts/staging-secrets.sh   # tạo lại (JWT cũ hết hiệu lực -> user phải đăng nhập lại)
