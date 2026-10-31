@@ -183,7 +183,7 @@ order-service:
   replicaCount: 1
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/order-service
-    tag: "staging-e96e6d93b3a5a9b4698c87e99a70bdf243e74e7d"
+    tag: "staging-13c25107de53eada163350b46fec74e5d97612c1"
     # Tag staging-<sha> có thể bị build đè (CI chạy lại cùng commit), nên luôn kéo lại.
     pullPolicy: Always
   service:
