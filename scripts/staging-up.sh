@@ -21,10 +21,15 @@ echo "==> Bật autoscaling 0..${MAX_NODES}"
 echo "==> Chờ node Ready"
 kubectl wait --for=condition=Ready nodes --all --timeout="$WAIT_TIMEOUT"
 
-# Đánh thức Postgres nếu staging-down.sh đã hibernate.
+# Đánh thức Postgres nếu staging-down.sh đã hibernate (chờ webhook sẵn sàng).
 if kubectl -n delivery-staging get cluster delivery-pg >/dev/null 2>&1; then
   echo "==> Bỏ hibernate Postgres"
-  kubectl -n delivery-staging annotate cluster delivery-pg cnpg.io/hibernation=off --overwrite >/dev/null
+  for i in {1..12}; do
+    if kubectl -n delivery-staging annotate cluster delivery-pg cnpg.io/hibernation=off --overwrite >/dev/null 2>&1; then
+      break
+    fi
+    sleep 5
+  done
 fi
 
 # GCP Secret Manager & External Secrets Operator credentials (idempotent).
