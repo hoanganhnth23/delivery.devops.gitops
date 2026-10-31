@@ -153,7 +153,7 @@ restaurant-service:
   replicaCount: 1
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/restaurant-service
-    tag: "staging-9c1123c1728735b697e5121961324f1f7b6c6b09"
+    tag: "staging-13632819ab2c0390a1a9d72a2b7e770ec081f512"
     # Tag staging-<sha> có thể bị build đè (CI chạy lại cùng commit), nên luôn kéo lại.
     pullPolicy: Always
   service:
@@ -164,6 +164,16 @@ restaurant-service:
   envFrom: *platformEnvFrom
   secretMounts: *runtimeSecretMounts
   env:
+    - name: JAVA_TOOL_OPTIONS
+      value: "-XX:MaxRAMPercentage=60.0 -XX:+ExitOnOutOfMemoryError -Xss512k"
+    - name: TOMCAT_THREADS_MAX
+      value: "60"
+    - name: TOMCAT_THREADS_MIN_SPARE
+      value: "10"
+    - name: TOMCAT_ACCEPT_COUNT
+      value: "100"
+    - name: SPRING_CACHE_CAFFEINE_SPEC
+      value: "maximumSize=1000,expireAfterWrite=60s"
     - name: SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE
       value: "16"
     - name: SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE
@@ -187,7 +197,7 @@ order-service:
   replicaCount: 1
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/order-service
-    tag: "staging-13c25107de53eada163350b46fec74e5d97612c1"
+    tag: "staging-a94bea6882bf7e08e98729a2f5082c86dfd8a920"
     # Tag staging-<sha> có thể bị build đè (CI chạy lại cùng commit), nên luôn kéo lại.
     pullPolicy: Always
   service:
@@ -198,6 +208,14 @@ order-service:
   envFrom: *platformEnvFrom
   secretMounts: *runtimeSecretMounts
   env:
+    - name: JAVA_TOOL_OPTIONS
+      value: "-XX:MaxRAMPercentage=60.0 -XX:+ExitOnOutOfMemoryError -Xss512k"
+    - name: APP_RESILIENCE_RESTAURANT_MAX_CONCURRENT_CALLS
+      value: "64"
+    - name: APP_RESILIENCE_RESTAURANT_TIMEOUT_MS
+      value: "3000"
+    - name: APP_RESILIENCE_RESTAURANT_WAIT_OPEN_SECONDS
+      value: "5"
     - name: SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE
       value: "16"
     - name: SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE
