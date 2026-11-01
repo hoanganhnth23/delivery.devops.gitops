@@ -155,7 +155,7 @@ restaurant-service:
   replicaCount: 1
   image:
     repository: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/restaurant-service
-    tag: "staging-3925eff2c1e1c001344c1e97cdcfda66e5e07623"
+    tag: "staging-cc04794ded780b41aed23e54219af1c7ce41dba1"
     # Tag staging-<sha> có thể bị build đè (CI chạy lại cùng commit), nên luôn kéo lại.
     pullPolicy: Always
   service:
@@ -164,7 +164,7 @@ restaurant-service:
   resources:
     limits:
       cpu: 1000m
-      memory: 768Mi
+      memory: 1024Mi
     requests:
       cpu: 450m
       memory: 384Mi
@@ -227,7 +227,7 @@ order-service:
   resources:
     limits:
       cpu: 1000m
-      memory: 768Mi
+      memory: 1024Mi
     requests:
       cpu: 450m
       memory: 384Mi
