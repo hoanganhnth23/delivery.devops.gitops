@@ -93,6 +93,8 @@ auth-service:
       value: "100"
     - name: SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE
       value: "16"
+    - name: JWT_ACCESS_TOKEN_TTL_SECONDS
+      value: "86400"
     - name: SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE
       value: "4"
     - name: SPRING_PROFILES_ACTIVE
