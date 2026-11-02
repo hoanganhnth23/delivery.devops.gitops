@@ -48,6 +48,19 @@ _defaults:
     - name: runtime-secrets
       secretName: delivery-runtime-secrets
       mountPath: /run/secrets
+  # Nhóm elastic (Kong + auth/restaurant/order/tracking/flashsale): node pool "elastic"
+  # (c3-standard-4, taint delivery.io/pool=elastic). Đổi nhóm một service = thêm/bỏ 3 dòng
+  # nodeSelector/tolerations/priorityClassName. Các service còn lại tự vào pool "core".
+  # Xem docs/plans/active/infra-capacity-baseline.md ở workspace gốc.
+  elasticNodeSelector: &elasticNodeSelector
+    delivery.io/pool: elastic
+  elasticTolerations: &elasticTolerations
+    - key: delivery.io/pool
+      operator: Equal
+      value: elastic
+      effect: NoSchedule
+  # Request CPU từng service ≈ 70% CPU đỉnh đo ở Tier 2 (2026-11-02) để HPA về sau tính đúng;
+  # limit 1500m cho burst. Tổng request nhóm + Kong ≈ 2.75 / 3.9 vCPU khả dụng của node.
   # Khi chạy test tải: đổi interval 5s / scrapeTimeout 4s, xong trả về 15s.
   metrics: &serviceMetrics
     serviceMonitor:
@@ -68,7 +81,16 @@ auth-service:
   service:
     port: 8081
     targetPort: 8081
-  resources: *serviceResources
+  resources:
+    limits:
+      cpu: 1500m
+      memory: 1024Mi
+    requests:
+      cpu: 250m
+      memory: 512Mi
+  nodeSelector: *elasticNodeSelector
+  tolerations: *elasticTolerations
+  priorityClassName: delivery-critical-path
   metrics: *serviceMetrics
   envFrom: *platformEnvFrom
   secretMounts:
@@ -163,22 +185,14 @@ restaurant-service:
     targetPort: 8083
   resources:
     limits:
-      cpu: 1000m
+      cpu: 1500m
       memory: 1024Mi
     requests:
-      cpu: 450m
-      memory: 384Mi
-  affinity:
-    podAntiAffinity:
-      preferredDuringSchedulingIgnoredDuringExecution:
-        - weight: 100
-          podAffinityTerm:
-            labelSelector:
-              matchExpressions:
-                - key: app.kubernetes.io/name
-                  operator: In
-                  values: ["order-service", "kong", "tracking-service"]
-            topologyKey: "kubernetes.io/hostname"
+      cpu: 500m
+      memory: 512Mi
+  nodeSelector: *elasticNodeSelector
+  tolerations: *elasticTolerations
+  priorityClassName: delivery-critical-path
   metrics: *serviceMetrics
   envFrom: *platformEnvFrom
   secretMounts: *runtimeSecretMounts
@@ -226,22 +240,14 @@ order-service:
     targetPort: 8084
   resources:
     limits:
-      cpu: 1000m
+      cpu: 1500m
       memory: 1024Mi
     requests:
-      cpu: 450m
-      memory: 384Mi
-  affinity:
-    podAntiAffinity:
-      preferredDuringSchedulingIgnoredDuringExecution:
-        - weight: 100
-          podAffinityTerm:
-            labelSelector:
-              matchExpressions:
-                - key: app.kubernetes.io/name
-                  operator: In
-                  values: ["restaurant-service", "kong", "tracking-service"]
-            topologyKey: "kubernetes.io/hostname"
+      cpu: 550m
+      memory: 512Mi
+  nodeSelector: *elasticNodeSelector
+  tolerations: *elasticTolerations
+  priorityClassName: delivery-critical-path
   metrics: *serviceMetrics
   envFrom: *platformEnvFrom
   secretMounts: *runtimeSecretMounts
@@ -444,7 +450,16 @@ flashsale-service:
   service:
     port: 8092
     targetPort: 8092
-  resources: *serviceResources
+  resources:
+    limits:
+      cpu: 1500m
+      memory: 1024Mi
+    requests:
+      cpu: 300m
+      memory: 512Mi
+  nodeSelector: *elasticNodeSelector
+  tolerations: *elasticTolerations
+  priorityClassName: delivery-critical-path
   metrics: *serviceMetrics
   envFrom: *platformEnvFrom
   secretMounts: *runtimeSecretMounts
@@ -481,22 +496,14 @@ tracking-service:
     targetPort: 8093
   resources:
     limits:
-      cpu: 1000m
-      memory: 768Mi
+      cpu: 1500m
+      memory: 1024Mi
     requests:
-      cpu: 350m
-      memory: 384Mi
-  affinity:
-    podAntiAffinity:
-      preferredDuringSchedulingIgnoredDuringExecution:
-        - weight: 100
-          podAffinityTerm:
-            labelSelector:
-              matchExpressions:
-                - key: app.kubernetes.io/name
-                  operator: In
-                  values: ["restaurant-service", "order-service"]
-            topologyKey: "kubernetes.io/hostname"
+      cpu: 600m
+      memory: 512Mi
+  nodeSelector: *elasticNodeSelector
+  tolerations: *elasticTolerations
+  priorityClassName: delivery-critical-path
   metrics: *serviceMetrics
   envFrom: *platformEnvFrom
   secretMounts: *runtimeSecretMounts

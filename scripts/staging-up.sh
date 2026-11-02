@@ -1,21 +1,19 @@
 #!/usr/bin/env bash
 # Bật staging cho một buổi làm việc/test tải.
-#   bash scripts/staging-up.sh            # 3 node e2-standard-2 (nấc 1, đủ 19 service)
-#   NODES=4 bash scripts/staging-up.sh    # bật sẵn nhiều node hơn cho buổi test nặng
+#   bash scripts/staging-up.sh                                   # mỗi pool core/data/elastic 1 node
+#   NODE_POOLS="core-pool:1 data-pool:1 elastic-pool:2" bash scripts/staging-up.sh
 # Xong buổi PHẢI chạy scripts/staging-down.sh, nếu không node chạy cả đêm.
 set -euo pipefail
 source "$(dirname "$0")/staging-env.sh"
-NODES="${NODES:-3}"
 WAIT_TIMEOUT="${WAIT_TIMEOUT:-900s}"
 
-echo "==> Resize ${NODE_POOL} lên ${NODES} node"
-"${GCLOUD[@]}" container clusters resize "$CLUSTER" --zone "$ZONE" \
-  --node-pool "$NODE_POOL" --num-nodes "$NODES" --quiet
-
-# Autoscaler chỉ bật trong buổi làm việc: HPA tăng replica -> pod Pending -> thêm node.
-echo "==> Bật autoscaling 0..${MAX_NODES}"
-"${GCLOUD[@]}" container node-pools update "$NODE_POOL" --cluster "$CLUSTER" --zone "$ZONE" \
-  --enable-autoscaling --min-nodes 0 --max-nodes "$MAX_NODES" --quiet
+# Data trước (PVC Postgres/Kafka), rồi core (ArgoCD, operator), rồi elastic.
+for entry in $NODE_POOLS; do
+  pool="${entry%%:*}"; nodes="${entry##*:}"
+  echo "==> Resize ${pool} lên ${nodes} node"
+  "${GCLOUD[@]}" container clusters resize "$CLUSTER" --zone "$ZONE" \
+    --node-pool "$pool" --num-nodes "$nodes" --quiet
+done
 
 "${GCLOUD[@]}" container clusters get-credentials "$CLUSTER" --zone "$ZONE" >/dev/null
 echo "==> Chờ node Ready"

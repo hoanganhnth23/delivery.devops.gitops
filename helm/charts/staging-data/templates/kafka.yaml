@@ -26,6 +26,21 @@ spec:
   jvmOptions:
     -Xms: {{ .Values.kafka.jvmHeap }}
     -Xmx: {{ .Values.kafka.jvmHeap }}
+  template:
+    pod:
+      priorityClassName: {{ .Values.scheduling.priorityClassName }}
+      tolerations:
+        {{- toYaml .Values.scheduling.tolerations | nindent 8 }}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  {{- range $k, $v := .Values.scheduling.nodeSelector }}
+                  - key: {{ $k }}
+                    operator: In
+                    values: [{{ $v | quote }}]
+                  {{- end }}
 ---
 {{- $rf := min (int .Values.kafka.replicas) 3 }}
 {{- $isr := ternary 2 1 (ge (int .Values.kafka.replicas) 3) }}

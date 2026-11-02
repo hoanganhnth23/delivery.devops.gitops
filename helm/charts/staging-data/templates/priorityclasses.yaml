@@ -1,0 +1,17 @@
+# Thứ tự ưu tiên khi thiếu chỗ: data > đường găng (Kong + nhóm elastic) > còn lại (0).
+# Nằm ở chart data (sync-wave 0) để có trước app (wave 1).
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: delivery-data
+value: 1000000
+globalDefault: false
+description: "Postgres, Kafka, Redis của Delivery."
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: delivery-critical-path
+value: 100000
+globalDefault: false
+description: "Kong và các service elastic trên đường đặt món."

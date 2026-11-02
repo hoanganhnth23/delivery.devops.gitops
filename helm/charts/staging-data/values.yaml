@@ -1,5 +1,17 @@
-# Nấc 1 "yếu nhưng đủ chạy" (2 node e2-standard-2): mọi thứ 1 instance, tài nguyên nhỏ.
+# Tầng data chạy trên pool riêng "data" (c3-standard-4, 4 vCPU / 16GB, taint
+# delivery.io/pool=data), tạo bởi terraform/environments/staging. App không chen vào node này.
 # Lên nấc 2: tăng instances/replicas = 3 và nâng resources/tham số theo bằng chứng đo được.
+
+scheduling:
+  nodeSelector:
+    delivery.io/pool: data
+  tolerations:
+    - key: delivery.io/pool
+      operator: Equal
+      value: data
+      effect: NoSchedule
+  # Pod data được ưu tiên giữ chỗ hơn mọi app (PriorityClass tạo trong templates/priorityclasses.yaml).
+  priorityClassName: delivery-data
 
 postgres:
   name: delivery-pg
@@ -7,18 +19,20 @@ postgres:
   storage: 20Gi
   storageClass: standard-rwo
   # ~160 kết nối idle (~3MB mỗi cái) + shared_buffers 256MB -> cần ~1GB khi đủ kết nối.
+  # Node data riêng 4 vCPU / 16GB: PG lấy phần lớn (Tier 2 2026-11-02 đỉnh 501m trên e2).
   resources:
     requests:
-      cpu: 250m
-      memory: 768Mi
+      cpu: "1500m"
+      memory: 4Gi
     limits:
-      cpu: "1"
-      memory: 1536Mi
+      cpu: "3"
+      memory: 6Gi
   parameters:
     # 16 service có DB × Hikari mặc định 10 = 160 kết nối; để dư cho psql/exporter.
     max_connections: "200"
-    shared_buffers: 256MB
-    effective_cache_size: 768MB
+    shared_buffers: 1GB
+    effective_cache_size: 4GB
+    work_mem: 8MB
     # Có tham số pg_stat_statements.* thì CNPG tự nạp extension -> tìm slow query.
     pg_stat_statements.max: "10000"
     pg_stat_statements.track: all
@@ -49,16 +63,15 @@ kafka:
   replicas: 1
   storage: 20Gi
   storageClass: standard-rwo
+  # Trên node data riêng không còn tranh request CPU với app (vụ Pending 2026-11-02).
   resources:
     requests:
-      # 200m (was 250m): after a 0->3 node resize the other pods fragment free CPU
-      # (~150-225m per e2-standard-2 node) and Kafka stayed Pending. Limit unchanged.
-      cpu: 200m
-      memory: 1Gi
+      cpu: 800m
+      memory: 2560Mi
     limits:
-      cpu: "1"
-      memory: 1536Mi
-  jvmHeap: 768m
+      cpu: "2"
+      memory: 3Gi
+  jvmHeap: 1536m
   defaultPartitions: 6
   # Client đang đặt *_AUTO_CREATE_TOPICS=false; staging để broker tự tạo topic.
   # Khi ổn định thì chuyển sang KafkaTopic CR (bật topicOperator).
@@ -74,11 +87,11 @@ redis:
   storageClass: standard-rwo
   resources:
     requests:
-      cpu: 100m
-      memory: 256Mi
-    limits:
-      cpu: 500m
+      cpu: 200m
       memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 768Mi
   exporter:
     image: oliver006/redis_exporter:v1.61.0
 

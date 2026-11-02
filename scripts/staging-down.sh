@@ -15,14 +15,21 @@ if kubectl -n delivery-staging get cluster delivery-pg >/dev/null 2>&1; then
   done
 fi
 
-# Tắt autoscaler TRƯỚC khi resize: nếu không, pod Pending sẽ kéo node bật lại.
-echo "==> Tắt autoscaling của ${NODE_POOL}"
-"${GCLOUD[@]}" container node-pools update "$NODE_POOL" --cluster "$CLUSTER" --zone "$ZONE" \
-  --no-enable-autoscaling --quiet
-
-echo "==> Resize ${NODE_POOL} về 0 node"
-"${GCLOUD[@]}" container clusters resize "$CLUSTER" --zone "$ZONE" \
-  --node-pool "$NODE_POOL" --num-nodes 0 --quiet
+for entry in $NODE_POOLS $LEGACY_POOLS; do
+  pool="${entry%%:*}"
+  "${GCLOUD[@]}" container node-pools describe "$pool" --cluster "$CLUSTER" --zone "$ZONE" \
+    >/dev/null 2>&1 || continue
+  # Tắt autoscaler TRƯỚC khi resize: nếu không, pod Pending sẽ kéo node bật lại.
+  if [[ "$("${GCLOUD[@]}" container node-pools describe "$pool" --cluster "$CLUSTER" --zone "$ZONE" \
+        --format='value(autoscaling.enabled)')" == "True" ]]; then
+    echo "==> Tắt autoscaling của ${pool}"
+    "${GCLOUD[@]}" container node-pools update "$pool" --cluster "$CLUSTER" --zone "$ZONE" \
+      --no-enable-autoscaling --quiet
+  fi
+  echo "==> Resize ${pool} về 0 node"
+  "${GCLOUD[@]}" container clusters resize "$CLUSTER" --zone "$ZONE" \
+    --node-pool "$pool" --num-nodes 0 --quiet
+done
 
 count=$("${GCLOUD[@]}" compute instances list \
   --filter="name~^gke-${CLUSTER}- AND status=RUNNING" --format="value(name)" | wc -l | tr -d ' ')
