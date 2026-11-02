@@ -51,7 +51,9 @@ kafka:
   storageClass: standard-rwo
   resources:
     requests:
-      cpu: 250m
+      # 200m (was 250m): after a 0->3 node resize the other pods fragment free CPU
+      # (~150-225m per e2-standard-2 node) and Kafka stayed Pending. Limit unchanged.
+      cpu: 200m
       memory: 1Gi
     limits:
       cpu: "1"
