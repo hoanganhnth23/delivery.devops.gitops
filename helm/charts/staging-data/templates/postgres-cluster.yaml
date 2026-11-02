@@ -11,6 +11,12 @@ spec:
     storageClass: {{ .Values.postgres.storageClass }}
   resources:
     {{- toYaml .Values.postgres.resources | nindent 4 }}
+  priorityClassName: {{ .Values.scheduling.priorityClassName }}
+  affinity:
+    nodeSelector:
+      {{- toYaml .Values.scheduling.nodeSelector | nindent 6 }}
+    tolerations:
+      {{- toYaml .Values.scheduling.tolerations | nindent 6 }}
   postgresql:
     parameters:
       {{- toYaml .Values.postgres.parameters | nindent 6 }}

@@ -51,24 +51,23 @@ spec:
               memory: 96Mi
             limits:
               memory: 256Mi
+        # Kong là cửa vào: chạy ở pool elastic (c3-standard-4) cùng nhóm đường găng.
+        # Tier 2 2026-11-02 đỉnh 544-833m với limit 1 CPU -> nâng limit, request ~60% đỉnh.
         resources:
           requests:
-            cpu: 100m
+            cpu: 500m
             memory: 256Mi
           limits:
-            cpu: "1"
+            cpu: "2"
             memory: 512Mi
-        affinity:
-          podAntiAffinity:
-            preferredDuringSchedulingIgnoredDuringExecution:
-              - weight: 100
-                podAffinityTerm:
-                  labelSelector:
-                    matchExpressions:
-                      - key: app.kubernetes.io/name
-                        operator: In
-                        values: ["restaurant-service", "order-service"]
-                  topologyKey: "kubernetes.io/hostname"
+        nodeSelector:
+          delivery.io/pool: elastic
+        tolerations:
+          - key: delivery.io/pool
+            operator: Equal
+            value: elastic
+            effect: NoSchedule
+        priorityClassName: delivery-critical-path
         serviceMonitor:
           enabled: true
           interval: 15s
