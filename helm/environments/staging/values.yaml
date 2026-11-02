@@ -253,20 +253,13 @@ order-service:
     - name: TOMCAT_THREADS_MAX
       value: "200"
     - name: APP_RESILIENCE_RESTAURANT_MAX_CONCURRENT_CALLS
-      value: "150"
+      value: "100"
     - name: APP_RESILIENCE_RESTAURANT_TIMEOUT_MS
       value: "3000"
     - name: APP_RESILIENCE_RESTAURANT_WAIT_OPEN_SECONDS
-      value: "3"
-    # Load-test tuning (1 replica): nới admission gate và WebClient pool sang restaurant-service.
-    - name: APP_ORDER_MAX_CONCURRENT_CREATES
-      value: "100"
-    - name: APP_HTTP_MAX_CONNECTIONS
-      value: "150"
-    - name: APP_HTTP_PENDING_ACQUIRE_TIMEOUT_MS
-      value: "2000"
-    - name: APP_HTTP_PENDING_ACQUIRE_MAX
-      value: "300"
+      value: "5"
+    # Admission gate / WebClient pool giữ mặc định trong code (16 / 32 / 250ms / 64):
+    # run cô lập 2026-11-02 cho thấy nới chúng trên 1 replica làm lỗi 9.75% -> 47%.
     - name: APP_ORDER_FLASHSALE_CHECKOUT_ENABLED
       value: "true"
     - name: SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE
