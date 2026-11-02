@@ -460,6 +460,11 @@ flashsale-service:
       value: "staging"
     - name: SPRING_DATASOURCE_URL
       value: "jdbc:postgresql://delivery-pg-rw:5432/flashsale_db"
+    # Bật reserve/quote nội bộ + Kafka listener + expiry job (cặp với
+    # APP_ORDER_FLASHSALE_CHECKOUT_ENABLED ở order-service) để kiểm chứng luồng
+    # Flashsale Rush trên staging. Chỉ staging.
+    - name: FLASHSALE_CHECKOUT_ENABLED
+      value: "true"
     - name: SPRING_DATASOURCE_USERNAME
       valueFrom:
         secretKeyRef: { name: delivery-pg-app, key: username }
