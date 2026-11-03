@@ -7,6 +7,7 @@ Thư mục `terraform/` gốc mô tả một cụm regional khác, chưa từng 
 |---|---|
 | Node pool `core-pool` (e2-standard-4), `data-pool` (c3-standard-4, taint), `elastic-pool` (c3-standard-4, taint); node private | Bản thân cụm GKE (đang tham chiếu bằng data source; import sau) |
 | Cloud Router + Cloud NAT `delivery-asia-southeast1-*` cho node private | Pool cũ `staging-pool` (xoá bằng gcloud sau khi pool mới chạy ổn) |
+| Cloud Run Job `k6-loadtest` + bucket `<project>-loadtest` + SA `k6-loadtest` (`loadtest.tf`; cách chạy: `load-testing/cloudrun/README.md` ở gốc workspace) | |
 
 Số node mỗi buổi đổi bằng `scripts/staging-up.sh` / `staging-down.sh` (Terraform bỏ qua `node_count`).
 

@@ -64,3 +64,27 @@ variable "node_pools" {
     }
   }
 }
+
+# --- k6 load test trên Cloud Run Job (loadtest.tf) ---
+variable "k6_image" {
+  description = "Build từ load-testing/cloudrun/Dockerfile, push vào Artifact Registry delivery-repo."
+  type        = string
+  default     = "asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo/k6-loadtest:2026-11-03"
+}
+
+variable "k6_cpu" {
+  description = "Một task Cloud Run tối đa 8 vCPU; tier2 (~500 rps, ~4k VU) nằm gọn trong 1 task."
+  type        = string
+  default     = "8"
+}
+
+variable "k6_memory" {
+  type    = string
+  default = "16Gi"
+}
+
+variable "k6_base_url" {
+  description = "Kong LB staging (IP public, đi thẳng qua Internet trong cùng vùng)."
+  type        = string
+  default     = "http://34.87.64.137"
+}
