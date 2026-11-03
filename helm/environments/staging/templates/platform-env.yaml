@@ -12,7 +12,7 @@ data:
   REDIS_HOST: {{ .Values.platformEnv.redisHost | quote }}
   MANAGEMENT_TRACING_ENABLED: {{ .Values.platformEnv.tracingEnabled | quote }}
   TRACING_SAMPLE_PROBABILITY: {{ .Values.platformEnv.tracingSampleProbability | quote }}
-  JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError"
+  JAVA_TOOL_OPTIONS: {{ .Values.platformEnv.javaToolOptions | quote }}
   # Tier 1 Database Connection Pool Tuning:
   # Mặc định giới hạn 3 kết nối cho các service phụ, giải phóng >60% connection cho PostgreSQL
   SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: {{ .Values.platformEnv.hikariMaxPoolSize | default "3" | quote }}

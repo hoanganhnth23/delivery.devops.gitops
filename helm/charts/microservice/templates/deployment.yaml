@@ -17,9 +17,16 @@ spec:
       {{- include "microservice.selectorLabels" . | nindent 6 }}
   template:
     metadata:
-      {{- with .Values.podAnnotations }}
+      {{- $platformEnvRev := (.Values.global | default dict).platformEnvRevision }}
+      {{- if or .Values.podAnnotations $platformEnvRev }}
       annotations:
+        {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- with $platformEnvRev }}
+        # Đổi global.platformEnvRevision khi sửa ConfigMap platform-env để mọi pod rollout lại.
+        delivery.io/platform-env-rev: {{ . | quote }}
+        {{- end }}
       {{- end }}
       labels:
         {{- include "microservice.selectorLabels" . | nindent 8 }}
