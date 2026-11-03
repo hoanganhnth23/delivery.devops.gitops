@@ -3,7 +3,7 @@ global:
   domain: staging.delivery.local
   garPrefix: asia-southeast1-docker.pkg.dev/lithe-paratext-506208-s5/delivery-repo
   # Đổi giá trị này mỗi khi sửa platformEnv (ConfigMap platform-env) → mọi microservice rollout lại.
-  platformEnvRevision: "2026-11-03-g1gc"
+  platformEnvRevision: "2026-11-03-serialgc"
 
 # =============================================================================
 # Staging là môi trường chạy chính (coi như prod). Cấu hình production chỉ để
@@ -18,9 +18,10 @@ platformEnv:
   # Chưa có OTLP collector trên staging: tắt export trace để không tốn tài nguyên.
   tracingEnabled: "false"
   tracingSampleProbability: "0.05"
-  # Ghi rõ G1: limit < ~1.8GB RAM thì JVM 21 tự chọn SerialGC (1 thread, dừng cả app khi dọn).
-  # Kiểm 2026-11-03: image order-service, --memory 1024m → UseSerialGC=true; thêm cờ → G1, 2 GC thread.
-  javaToolOptions: "-XX:+UseG1GC -XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError"
+  # GC để JVM tự chọn: limit < ~1.8GB RAM / < 2 CPU → SerialGC. Đã thử ép G1 (gitops #31, 2026-11-03):
+  # 5000 CCU lỗi 1.81% → 3.07%, p95 gấp ~2, CPU node core 1.5 → 3.2, dispatch/notification bị throttle 12–17%.
+  # Pod nhỏ + node sát trần CPU thì Serial tốt hơn. Chỉ xét lại G1 khi pod ≥ 2 CPU / 2Gi.
+  javaToolOptions: "-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError"
 
 # Tích hợp Google Cloud Secret Manager qua External Secrets Operator
 externalSecrets:
@@ -205,7 +206,7 @@ restaurant-service:
     - name: SPRING_THREADS_VIRTUAL_ENABLED
       value: "true"
     - name: JAVA_TOOL_OPTIONS
-      value: "-XX:+UseG1GC -XX:MaxRAMPercentage=60.0 -XX:+ExitOnOutOfMemoryError -Xss512k"
+      value: "-XX:MaxRAMPercentage=60.0 -XX:+ExitOnOutOfMemoryError -Xss512k"
     - name: TOMCAT_THREADS_MAX
       value: "200"
     - name: TOMCAT_THREADS_MIN_SPARE
@@ -260,7 +261,7 @@ order-service:
     - name: SPRING_THREADS_VIRTUAL_ENABLED
       value: "true"
     - name: JAVA_TOOL_OPTIONS
-      value: "-XX:+UseG1GC -XX:MaxRAMPercentage=60.0 -XX:+ExitOnOutOfMemoryError -Xss512k"
+      value: "-XX:MaxRAMPercentage=60.0 -XX:+ExitOnOutOfMemoryError -Xss512k"
     - name: TOMCAT_THREADS_MAX
       value: "200"
     - name: APP_RESILIENCE_RESTAURANT_MAX_CONCURRENT_CALLS
@@ -516,7 +517,7 @@ tracking-service:
     - name: SPRING_THREADS_VIRTUAL_ENABLED
       value: "true"
     - name: JAVA_TOOL_OPTIONS
-      value: "-XX:+UseG1GC -XX:MaxRAMPercentage=60.0 -XX:+ExitOnOutOfMemoryError -Xss512k"
+      value: "-XX:MaxRAMPercentage=60.0 -XX:+ExitOnOutOfMemoryError -Xss512k"
     - name: SPRING_PROFILES_ACTIVE
       value: "staging"
     - name: SPRING_DATASOURCE_URL
