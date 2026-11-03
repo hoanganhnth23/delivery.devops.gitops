@@ -22,12 +22,23 @@ kubectl wait --for=condition=Ready nodes --all --timeout="$WAIT_TIMEOUT"
 # Đánh thức Postgres nếu staging-down.sh đã hibernate (chờ webhook sẵn sàng).
 if kubectl -n delivery-staging get cluster delivery-pg >/dev/null 2>&1; then
   echo "==> Bỏ hibernate Postgres"
-  for i in {1..12}; do
-    if kubectl -n delivery-staging annotate cluster delivery-pg cnpg.io/hibernation=off --overwrite >/dev/null 2>&1; then
+  # Webhook CNPG có khi mất >1 phút mới lên (core node đang khởi động ArgoCD/operator):
+  # thử tới 5 phút và kiểm tra lại annotation, nếu không PG ngủ tiếp còn mọi service CrashLoop.
+  unhibernated=false
+  for _ in {1..60}; do
+    kubectl -n delivery-staging annotate cluster delivery-pg cnpg.io/hibernation=off --overwrite >/dev/null 2>&1 || true
+    if [[ "$(kubectl -n delivery-staging get cluster delivery-pg \
+          -o jsonpath='{.metadata.annotations.cnpg\.io/hibernation}' 2>/dev/null)" == "off" ]]; then
+      unhibernated=true
       break
     fi
     sleep 5
   done
+  if [[ "$unhibernated" != true ]]; then
+    echo "!! Không bỏ hibernate được Postgres. Chạy tay:" >&2
+    echo "   kubectl -n delivery-staging annotate cluster delivery-pg cnpg.io/hibernation=off --overwrite" >&2
+    exit 1
+  fi
 fi
 
 # GCP Secret Manager & External Secrets Operator credentials (idempotent).
